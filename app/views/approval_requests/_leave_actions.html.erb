@@ -1,0 +1,85 @@
+<%# 休暇申請の操作（本人）：承認待ちなら取り下げ、承認済みで開始日が明日以降なら取消申請 %>
+<% description = leave.description %>
+<% history_path = attendances_path(month: WorkRules.current.period_containing(leave.target_date).to_param) %>
+<section class="card section request-actions" aria-labelledby="actions-title" data-testid="request-actions">
+  <h2 id="actions-title" class="visually-hidden">操作</h2>
+  <% if leave.pending? %>
+    <p class="request-actions__note">管理者の承認を待っています。承認されると、勤怠履歴の該当日に「<%= leave.day_label %>」と表示されます（承認待ちの間は「申請中」と表示されます）。</p>
+    <div class="form__actions">
+      <%= button_to "この申請を取り下げる", approval_request_withdrawal_path(leave),
+                    class: "button button--danger", form_class: "request-actions__form",
+                    data: { turbo_confirm: "#{description}の申請を取り下げますか？",
+                            turbo_submits_with: "取り下げ中…", testid: "withdraw-button" } %>
+      <%= link_to "勤怠履歴で見る", history_path, class: "button button--ghost" %>
+    </div>
+  <% elsif leave.withdrawn? %>
+    <p class="request-actions__note muted">この申請は取り下げました。休暇は登録されていません。</p>
+    <%= link_to "休暇を申請する", leave_requests_path, class: "button button--ghost" %>
+  <% elsif leave.rejected? %>
+    <p class="request-actions__note" data-testid="processed-note">この申請は却下されたため、休暇は登録されていません。処理済みの申請は取り下げできません。</p>
+    <%= link_to "休暇を申請し直す", leave_requests_path, class: "button button--ghost" %>
+  <% elsif leave.directly_cancelled? %>
+    <p class="request-actions__note" data-testid="processed-note">この休暇は管理者（<%= leave.cancelled_by&.name %> さん）が <%= l(leave.cancelled_at, format: :long) %> に取り消しました。勤怠履歴には表示されません（取消の理由は上の「休暇の内容」にあります）。</p>
+  <% elsif leave.cancelled? %>
+    <p class="request-actions__note" data-testid="processed-note">この休暇は取消申請が承認され、<%= l(leave.cancelled_at, format: :long) %> に取り消されました。勤怠履歴には表示されません。</p>
+  <% else %>
+    <p class="request-actions__note" data-testid="processed-note">この休暇は承認されました。勤怠履歴の該当日に「<%= leave.day_label %>」と表示されます。処理済みの申請は取り下げできません。</p>
+    <% if (pending_cancellation = leave.pending_cancellation) %>
+      <div class="notice-box notice-box--warning leave-cancel" role="note" data-testid="cancellation-pending">
+        <p class="notice-box__title">取消申請中です</p>
+        <p class="notice-box__body">
+          <%= l(pending_cancellation.created_at, format: :short) %> に取消申請を出しました。管理者が承認するまで、休暇は有効です。
+          <%= link_to "取消申請を見る", approval_request_path(pending_cancellation), class: "notice-box__link" %>
+        </p>
+      </div>
+    <% elsif leave.cancellable? %>
+      <div class="leave-cancel" data-testid="cancellation-form-section">
+        <h3 class="leave-cancel__title">この休暇を取り消したい場合</h3>
+        <p class="request-actions__note muted">取消申請を出し、管理者が承認すると休暇が取り消されます（却下された場合は休暇のままです）。開始日の前日まで申請できます。</p>
+        <%= form_with model: cancellation, scope: :leave_cancellation_request, url: leave_request_cancellation_path(leave),
+                      method: :post, class: "form leave-cancel__form", data: { testid: "cancellation-form" } do |f| %>
+          <%= render "shared/form_errors", record: cancellation %>
+          <div class="form__field">
+            <%= f.label :reason, class: "form__label" do %>取消の理由 <span class="form__required">必須</span><% end %>
+            <%= f.text_area :reason, class: "form__input form__textarea", rows: 2, required: true,
+                                     maxlength: ApprovalRequest::REASON_MAX_LENGTH, placeholder: "例：予定が変わり、出勤できるようになったため。" %>
+          </div>
+          <div class="form__actions">
+            <%= f.submit "取消を申請する", class: "button button--danger",
+                                           data: { turbo_confirm: "#{description}の取消を申請しますか？管理者が承認すると休暇が取り消されます。",
+                                                   turbo_submits_with: "申請中…", testid: "cancellation-submit" } %>
+          </div>
+        <% end %>
+      </div>
+    <% elsif leave.cancellation_blocker == :already_started %>
+      <div class="notice-box notice-box--info leave-cancel" role="note" data-testid="cancellation-unavailable">
+        <p class="notice-box__title">取消は管理者に依頼してください</p>
+        <p class="notice-box__body">開始日が今日または過去の休暇は、ご自身では取消申請できません。取り消す必要がある場合は、管理者に依頼してください（管理者が直接取り消します）。</p>
+      </div>
+    <% else %>
+      <p class="request-actions__note muted" data-testid="cancellation-unavailable"><%= t("leave_request.cancellation_blockers.#{leave.cancellation_blocker}") %></p>
+    <% end %>
+    <div class="form__actions">
+      <%= link_to "勤怠履歴で見る", history_path, class: "button button--ghost" %>
+      <% if current_user.admin? %>
+        <%= link_to "承認画面で開く（直接取消）", admin_approval_request_path(leave), class: "button button--ghost",
+                                                                         data: { testid: "admin-leave-link" } %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <% past_cancellations = leave.cancellation_requests.select { |item| item.persisted? && !item.pending? } %>
+  <% if past_cancellations.any? %>
+    <div class="leave-cancel__history" data-testid="cancellation-history">
+      <h3 class="leave-cancel__title">これまでの取消申請</h3>
+      <ul class="leave-cancel__list">
+        <% past_cancellations.each do |item| %>
+          <li>
+            <%= link_to "#{l(item.created_at, format: :short)} の取消申請", approval_request_path(item) %>
+            <%= approval_request_status_badge(item) %>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+</section>

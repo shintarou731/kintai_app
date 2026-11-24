@@ -1,0 +1,165 @@
+<% monthly = @monthly %>
+<% period = monthly.period %>
+<% today = monthly.today %>
+<% rules = monthly.rules %>
+<% content_for :title, "勤怠履歴（#{period.label}）" %>
+
+<div class="page">
+  <header class="page__header page__header--with-actions history-header">
+    <div>
+      <p class="page__eyebrow">勤怠履歴</p>
+      <h1 class="page__title" data-testid="period-label">
+        <%= period.label %>
+        <% if monthly.current_period? %><span class="badge badge--accent">今<%= period.unit %></span><% end %>
+      </h1>
+      <p class="history-header__range muted">
+        <span data-testid="period-range"><%= l(period.start_date, format: :short_with_day) %>〜<%= l(period.end_date, format: :short_with_day) %></span>
+        <span data-testid="closing-day">（<%= WorkRuleSetting.closing_day_label(rules.closing_day) %>締め）</span>
+      </p>
+    </div>
+
+    <nav class="month-nav" aria-label="表示する月の切り替え">
+      <% if period.previous.navigable? %>
+        <%= link_to "← 前#{period.unit}", attendances_path(month: period.previous.to_param),
+                    class: "button button--ghost button--small", rel: "prev", data: { testid: "previous-month" } %>
+      <% end %>
+      <% unless monthly.current_period? %>
+        <%= link_to "今#{period.unit}", attendances_path, class: "button button--ghost button--small", data: { testid: "current-month" } %>
+      <% end %>
+      <% if period.next.navigable? %>
+        <%= link_to "翌#{period.unit} →", attendances_path(month: period.next.to_param),
+                    class: "button button--ghost button--small", rel: "next", data: { testid: "next-month" } %>
+      <% end %>
+    </nav>
+  </header>
+
+  <section class="card section" aria-labelledby="totals-title" data-testid="monthly-totals">
+    <h2 id="totals-title" class="card__title">この<%= period.unit %>の合計</h2>
+    <dl class="summary">
+      <div class="summary__item">
+        <dt class="summary__label">出勤日数</dt>
+        <dd class="summary__value" data-testid="total-days"><%= monthly.working_days_count %><span class="summary__unit">日</span></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">総実働時間</dt>
+        <dd class="summary__value" data-testid="total-worked"><%= format_duration(monthly.total_worked_minutes) %></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">総残業時間</dt>
+        <dd class="summary__value" data-testid="total-overtime"><%= format_duration(monthly.total_overtime_minutes) %></dd>
+        <% if rules.overtime_warning?(monthly.total_overtime_minutes) %>
+          <dd class="summary__caption summary__caption--danger" data-testid="overtime-warning">警告ライン（<%= rules.overtime_warning_hours %>時間）を超えています</dd>
+        <% else %>
+          <dd class="summary__caption" data-testid="overtime-warning">警告ライン <%= rules.overtime_warning_hours %>時間</dd>
+        <% end %>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">深夜時間</dt>
+        <dd class="summary__value" data-testid="total-night"><%= format_duration(monthly.total_night_minutes) %></dd>
+      </div>
+    </dl>
+    <% leave_totals = monthly.leave_day_totals %>
+    <p class="summary__leaves" data-testid="leave-totals">
+      <span class="summary__leaves-label">この<%= period.unit %>の休暇（承認済み）</span>
+      <% if leave_totals.any? %>
+        <%= leave_totals.map { |type, days| "#{LeaveRequest.leave_type_short_label(type)} #{format_leave_days(days)}" }.join("・") %>
+        <span class="muted">（休日＝土日・祝日は数えません）</span>
+      <% else %>
+        <span class="muted">なし</span>
+      <% end %>
+      <%= link_to "休暇を申請する", leave_requests_path, class: "summary__leaves-link" %>
+    </p>
+    <p class="summary__note muted">
+      残業時間＝1日の実働時間のうち所定労働時間（<%= format_duration(rules.scheduled_work_minutes) %>）を超えた部分。
+      深夜時間＝22:00〜翌5:00 に働いた時間（休憩を除く）。日付をまたいだ勤務は出勤した日に数えます。
+    </p>
+  </section>
+
+  <% missing_days = monthly.missing_clock_out_days %>
+  <% if missing_days.any? %>
+    <% open_days = monthly.open_missing_clock_out_days %>
+    <% closed_days = monthly.closed_missing_clock_out_days %>
+    <section class="notice-box notice-box--danger section" role="note" data-testid="missing-clock-out-notice">
+      <p class="notice-box__title">退勤漏れが <%= missing_days.size %> 日あります</p>
+      <% if closed_days.any? %>
+        <p class="notice-box__body" data-testid="missing-clock-out-closed">
+          <%= closed_days.map { |day| l(day.date, format: :short_with_day) }.join("、") %>
+          は退勤の打刻がありません。出勤から24時間を過ぎたためホームからは退勤できません。修正申請で、実際に退勤した時刻を申請してください。
+          <%= safe_join(closed_days.map { |day| attendance_missing_clock_out_request_link(day, monthly) }, " ") %>
+        </p>
+      <% end %>
+      <% open_days.each do |day| %>
+        <p class="notice-box__body" data-testid="missing-clock-out-open">
+          <%= l(day.date, format: :short_with_day) %> は退勤の打刻がまだありません。
+          出勤から24時間以内のため、<%= attendance_clock_out_deadline(day.attendance) %> まではホームから退勤を打刻できます。
+          <%= link_to "ホームで退勤する", root_path, class: "notice-box__link" %>
+        </p>
+      <% end %>
+      <p class="notice-box__body">
+        退勤時刻が無いため、退勤漏れの日の時間は合計に含めていません（出勤日数には含めます）。
+      </p>
+    </section>
+  <% end %>
+
+  <% if (in_progress = monthly.in_progress_day) %>
+    <p class="history-progress section" data-testid="in-progress-note">
+      <%= l(in_progress.date, format: :short_with_day) %> の勤務は<%= in_progress.status == :on_break ? "休憩中" : "勤務中" %>です。
+      合計には表示した時点（<%= format_clock_time(monthly.now) %>）までの時間を含めています。
+    </p>
+  <% end %>
+
+  <section class="card card--flush section" aria-labelledby="days-title">
+    <div class="history-legend">
+      <h2 id="days-title" class="history-legend__title">日別の勤怠</h2>
+      <p class="history-legend__items muted">
+        <span class="history-legend__swatch history-legend__swatch--saturday" aria-hidden="true"></span>土曜
+        <span class="history-legend__swatch history-legend__swatch--sunday" aria-hidden="true"></span>日曜・祝日
+        <span class="history-legend__swatch history-legend__swatch--missing" aria-hidden="true"></span>退勤漏れ
+        <span class="badge badge--warning history-legend__badge" aria-hidden="true">申請中</span>承認待ちの修正申請あり
+        <span class="badge badge--leave history-legend__badge" aria-hidden="true">有給（全日）</span>承認済みの休暇
+      </p>
+    </div>
+
+    <table class="table history-table" data-testid="attendance-days">
+      <thead>
+        <tr>
+          <th scope="col">日付</th>
+          <th scope="col">出勤</th>
+          <th scope="col">退勤</th>
+          <th scope="col">休憩</th>
+          <th scope="col">実働</th>
+          <th scope="col">残業</th>
+          <th scope="col">深夜</th>
+          <th scope="col">備考</th>
+          <th scope="col">修正</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% monthly.days.each do |day| %>
+          <% day_leaves = monthly.leaves_on(day.date) %>
+          <tr class="<%= attendance_day_row_class(day, today: today, leaves: day_leaves) %>" data-date="<%= day.date.iso8601 %>">
+            <th scope="row" class="history-table__date">
+              <span class="history-table__day"><%= l(day.date, format: :short_with_day) %></span>
+              <%= attendance_holiday_label(day) %>
+              <% if day.date == today %><span class="badge badge--accent">今日</span><% end %>
+              <% if !day.worked? && day_leaves.none? %><span class="history-table__empty-label">勤務なし</span><% end %>
+            </th>
+            <td data-label="出勤" data-column="clock-in"><%= format_clock_time(day.attendance&.clock_in_at, placeholder: "") %></td>
+            <td data-label="退勤" data-column="clock-out"><%= attendance_clock_out_cell(day) %></td>
+            <td data-label="休憩" data-column="break"><%= attendance_duration_cell(day, day.break_minutes) %></td>
+            <td data-label="実働" data-column="worked" class="history-table__worked"><%= attendance_duration_cell(day, day.worked_minutes) %></td>
+            <td data-label="残業" data-column="overtime"><%= attendance_duration_cell(day, day.overtime_minutes) %></td>
+            <td data-label="深夜" data-column="night"><%= attendance_duration_cell(day, day.night_minutes) %></td>
+            <td data-column="note" class="history-table__note"><%= safe_join([ attendance_leave_badges(day_leaves, day.date), attendance_day_status_badge(day) ].compact_blank, " ") %></td>
+            <td data-column="request" class="history-table__request"><%= attendance_day_request_cell(day, monthly) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </section>
+
+  <p class="summary__note muted">
+    時間は分単位で計算します（打刻時刻の秒は切り捨て）。実働時間＝退勤−出勤−休憩合計。
+    打刻を忘れた・押し間違えた日は、その日の「修正申請」から正しい時刻を申請できます（承認されると記録が直ります）。
+  </p>
+</div>

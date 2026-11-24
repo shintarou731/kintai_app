@@ -1,0 +1,44 @@
+<% content_for :title, "従業員を編集" %>
+<% self_edit = @employee == current_user %>
+<% display_name = @employee.name_in_database %>
+
+<div class="page page--narrow">
+  <%= link_to "← 従業員一覧に戻る", admin_employees_path, class: "back-link" %>
+  <header class="page__header">
+    <h1 class="page__title">
+      <%= display_name %> さん
+      <%= user_status_badge(@employee) %>
+    </h1>
+  </header>
+
+  <section class="card section">
+    <h2 class="card__title">基本情報</h2>
+    <%= render "form", employee: @employee, url: admin_employee_path(@employee), password: false, self_edit: self_edit, submit_label: "更新する" %>
+  </section>
+
+  <section class="card section">
+    <h2 class="card__title">パスワード</h2>
+    <% if self_edit %>
+      <p class="card__lead">ご自身のパスワードは、現在のパスワードを確認したうえで変更します。</p>
+      <%= link_to "パスワードを変更する", edit_password_path, class: "button button--ghost" %>
+    <% else %>
+      <p class="card__lead">パスワードを忘れた場合などに、新しいパスワードを設定できます。</p>
+      <%= link_to "パスワードを再設定する", edit_admin_employee_password_path(@employee), class: "button button--ghost" %>
+    <% end %>
+  </section>
+
+  <section class="card section" data-testid="activation-card">
+    <h2 class="card__title">アカウントの状態</h2>
+    <% if self_edit %>
+      <p class="card__lead">ご自身のアカウントは無効にできません。</p>
+    <% elsif @employee.active? %>
+      <p class="card__lead">無効にすると、この従業員はログインできなくなります。記録は削除されず、あとで有効に戻せます。</p>
+      <%= button_to "無効にする", admin_employee_activation_path(@employee), method: :delete,
+                    class: "button button--danger",
+                    form: { data: { turbo_confirm: "#{display_name} さんを無効にします。ログインできなくなりますが、よろしいですか？" } } %>
+    <% else %>
+      <p class="card__lead">このアカウントは無効です。有効に戻すと、再びログインできるようになります。</p>
+      <%= button_to "有効に戻す", admin_employee_activation_path(@employee), method: :post, class: "button button--primary" %>
+    <% end %>
+  </section>
+</div>

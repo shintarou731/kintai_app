@@ -1,0 +1,19 @@
+<%# 承認・却下の結果（処理した管理者・日時・コメント）。申請者の詳細と承認画面の詳細で使う %>
+<section class="card section review-result review-result--<%= approval_request.status %>" aria-labelledby="review-result-title"
+         data-testid="review-result">
+  <h2 id="review-result-title" class="card__title card__title--small">
+    処理結果 <%= approval_request_status_badge(approval_request) %>
+  </h2>
+  <dl class="request-meta">
+    <div><dt>処理した管理者</dt><dd data-testid="reviewer-name"><%= approval_request.reviewer&.name || "—" %></dd></div>
+    <div><dt>処理日時</dt><dd data-testid="reviewed-at"><%= approval_request.reviewed_at ? l(approval_request.reviewed_at, format: :long) : "—" %></dd></div>
+  </dl>
+  <div class="review-result__comment">
+    <p class="review-result__label">コメント</p>
+    <% if approval_request.review_comment.present? %>
+      <p class="request-reason" data-testid="review-comment"><%= approval_request.review_comment %></p>
+    <% else %>
+      <p class="muted" data-testid="review-comment">（コメントなし）</p>
+    <% end %>
+  </div>
+</section>

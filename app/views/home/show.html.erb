@@ -1,0 +1,216 @@
+<% content_for :title, "ホーム" %>
+<% time_clock = @time_clock %>
+<% attendance = time_clock.attendance %>
+<% now = time_clock.now %>
+<% state = time_clock.state %>
+
+<%# 時計（clock コントローラ）はページ全体に付け、打刻カードの時刻と「今日の勤務」の進行中の時間をまとめて進める %>
+<div class="page page--narrow page--home"
+     data-controller="clock" data-clock-server-now-value="<%= (now.to_f * 1000).to_i %>">
+  <header class="page__header">
+    <p class="page__eyebrow">ようこそ、<%= current_user.name %> さん</p>
+    <h1 class="page__title">ホーム</h1>
+  </header>
+
+  <section class="card punch section" aria-labelledby="punch-title">
+    <h2 id="punch-title" class="visually-hidden">打刻</h2>
+
+    <p class="punch__date" data-clock-target="date"><%= l(now.to_date, format: :long) %></p>
+    <p class="punch__time" data-testid="current-time">
+      <time data-clock-target="time" datetime="<%= now.iso8601 %>"><%= now.strftime("%H:%M:%S") %></time>
+    </p>
+
+    <p class="punch__status">
+      <%= time_clock_status(state) %>
+    </p>
+
+    <% if %i[working on_break].include?(state) && attendance.overnight?(as_of: now) %>
+      <p class="punch__note" data-testid="overnight-note">
+        <%= l(attendance.work_date, format: :short_with_day) %> <%= format_clock_time(attendance.clock_in_at) %> に出勤した勤務の続きです。
+        退勤すると <%= l(attendance.work_date, format: :short_with_day) %> の勤務として記録されます。
+        退勤は出勤から24時間以内（<%= attendance_clock_out_deadline(attendance) %> まで）なら打刻できます。
+        退勤するまで、勤怠履歴では「退勤漏れ」と表示されます。
+      </p>
+    <% end %>
+
+    <div class="punch__actions">
+      <%= button_to "出勤", clock_in_path,
+            class: "punch-button punch-button--in",
+            disabled: !time_clock.can_clock_in?,
+            form_class: "punch__form",
+            data: { turbo_submits_with: "記録中…", testid: "clock-in-button" } %>
+      <%= button_to "退勤", clock_out_path,
+            params: { attendance_id: time_clock.current_attendance&.id }.compact,
+            class: "punch-button punch-button--out",
+            disabled: !time_clock.can_clock_out?,
+            form_class: "punch__form",
+            data: { turbo_submits_with: "記録中…", testid: "clock-out-button" } %>
+      <%= button_to "休憩開始", break_start_path,
+            class: "punch-button punch-button--break",
+            disabled: !time_clock.can_start_break?,
+            form_class: "punch__form",
+            data: { turbo_submits_with: "記録中…", testid: "break-start-button" } %>
+      <%= button_to "休憩終了", break_end_path,
+            class: "punch-button punch-button--break-end",
+            disabled: !time_clock.can_end_break?,
+            form_class: "punch__form",
+            data: { turbo_submits_with: "記録中…", testid: "break-end-button" } %>
+    </div>
+
+    <p class="punch__hint muted" data-testid="punch-hint">
+      <% case state %>
+      <% when :not_started %>
+        「出勤」を押すと、その時刻が出勤時刻として記録されます。
+      <% when :working %>
+        休憩に入るときは「休憩開始」、仕事が終わったら「退勤」を押してください。
+      <% when :on_break %>
+        休憩中です（<%= format_clock_time(attendance.open_break.started_at) %> から）。休憩が終わったら「休憩終了」を押してください。休憩中は退勤できません。
+      <% when :finished %>
+        本日の勤務は記録済みです。お疲れさまでした。
+      <% end %>
+    </p>
+  </section>
+
+  <section class="card section" aria-labelledby="today-title" data-testid="today-attendance">
+    <h2 id="today-title" class="card__title">
+      <% if attendance && attendance.work_date != now.to_date %>
+        <%= l(attendance.work_date, format: :short_with_day) %> の勤務
+        <span class="badge badge--outline">日付をまたいだ勤務</span>
+      <% else %>
+        今日の勤務
+      <% end %>
+    </h2>
+
+    <dl class="summary">
+      <div class="summary__item">
+        <dt class="summary__label">出勤</dt>
+        <dd class="summary__value" data-testid="clock-in-time"><%= format_clock_time(attendance&.clock_in_at) %></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">退勤</dt>
+        <dd class="summary__value" data-testid="clock-out-time">
+          <%= format_clock_time(attendance&.clock_out_at) %>
+          <% if attendance&.clocked_out? && attendance.clock_out_at.to_date != attendance.work_date %>
+            <span class="summary__sub">（翌日）</span>
+          <% end %>
+        </dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">休憩合計</dt>
+        <dd class="summary__value" data-testid="break-time">
+          <% if state == :on_break %>
+            <%= running_duration_tag(attendance.break_minutes(as_of: now),
+                                     since: attendance.open_break.started_at,
+                                     base_minutes: attendance.finished_break_minutes) %>
+            <span class="summary__sub">（休憩中）</span>
+          <% else %>
+            <%= format_duration(attendance&.break_minutes(as_of: now).to_i) %>
+            <% if attendance&.breaks.present? %>
+              <span class="summary__sub">（<%= attendance.breaks.size %>回）</span>
+            <% end %>
+          <% end %>
+        </dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">実働時間</dt>
+        <dd class="summary__value" data-testid="worked-time">
+          <% case state %>
+          <% when :working %>
+            <%= running_duration_tag(attendance.worked_minutes(as_of: now),
+                                     since: attendance.clock_in_at,
+                                     base_minutes: -attendance.break_minutes(as_of: now)) %>
+            <span class="summary__sub">（勤務中）</span>
+          <% when :on_break %>
+            <%= format_duration(attendance.worked_minutes(as_of: now)) %>
+            <span class="summary__sub">（休憩中は停止）</span>
+          <% else %>
+            <%= format_duration(attendance&.worked_minutes.to_i) %>
+          <% end %>
+        </dd>
+      </div>
+    </dl>
+
+    <% if attendance&.breaks.present? %>
+      <div class="breaks" data-testid="break-list">
+        <h3 class="breaks__title">休憩の記録</h3>
+        <ol class="breaks__list">
+          <% attendance.breaks.each.with_index(1) do |attendance_break, number| %>
+            <li class="breaks__item<%= " breaks__item--open" if attendance_break.open? %>">
+              <span class="breaks__number"><%= number %>回目</span>
+              <span class="breaks__range">
+                <%= format_clock_time(attendance_break.started_at) %>〜<%= format_clock_time(attendance_break.ended_at, placeholder: "") %>
+              </span>
+              <span class="breaks__duration">
+                <% if attendance_break.open? %>
+                  休憩中
+                <% else %>
+                  <%= format_duration(attendance_break.duration_minutes) %>
+                <% end %>
+              </span>
+            </li>
+          <% end %>
+        </ol>
+      </div>
+    <% end %>
+
+    <p class="summary__note muted">
+      時間は分単位で計算します（打刻時刻の秒は切り捨て）。実働時間＝退勤−出勤−休憩合計。
+    </p>
+
+    <% if (previous = time_clock.previous_attendance) %>
+      <p class="summary__previous muted" data-testid="previous-attendance">
+        前日（<%= l(previous.work_date, format: :short_with_day) %>）の勤務：
+        <%= format_clock_time(previous.clock_in_at) %>〜<%= format_clock_time(previous.clock_out_at) %>
+        （実働 <%= format_duration(previous.worked_minutes) %><% if previous.break_minutes.positive? %>、休憩 <%= format_duration(previous.break_minutes) %><% end %>）
+      </p>
+    <% end %>
+  </section>
+
+  <% missing = @missing_clock_outs %>
+  <% if missing.any? %>
+    <% rules = WorkRules.current %>
+    <section class="notice-box notice-box--danger section" role="note" data-testid="missing-clock-outs">
+      <p class="notice-box__title">退勤漏れの勤務があります</p>
+      <p class="notice-box__body">
+        <%= safe_join(missing.map { |item|
+              link_to("#{l(item.work_date, format: :short_with_day)}（#{format_clock_time(item.clock_in_at)} 出勤）",
+                      attendances_path(month: rules.period_containing(item.work_date).to_param),
+                      class: "notice-box__link", data: { testid: "missing-clock-out-link" })
+            }, "、") %>
+        は退勤が記録されていません。出勤から24時間を過ぎたため、ここからは退勤できません。修正申請で、実際に退勤した時刻を申請してください。
+      </p>
+      <p class="notice-box__body notice-box__actions">
+        <% missing.each do |item| %>
+          <% if (pending = @pending_corrections_by_date[item.work_date]) %>
+            <%= link_to "#{l(item.work_date, format: :short_with_day)} は申請中", approval_request_path(pending),
+                        class: "notice-box__link", data: { testid: "missing-clock-out-pending-link" } %>
+          <% else %>
+            <%= link_to "#{l(item.work_date, format: :short_with_day)} の修正申請をする",
+                        new_attendance_correction_request_path(date: item.work_date.iso8601),
+                        class: "notice-box__link", data: { testid: "missing-clock-out-request-link" } %>
+          <% end %>
+        <% end %>
+        <%= link_to "勤怠履歴で確認する",
+                    attendances_path(month: rules.period_containing(missing.first.work_date).to_param),
+                    class: "notice-box__link", data: { testid: "missing-clock-outs-history-link" } %>
+      </p>
+    </section>
+  <% end %>
+
+  <section class="card section quick-links">
+    <h2 class="card__title">アカウント</h2>
+    <ul class="quick-links__list">
+      <li><%= link_to "今月の勤怠履歴を見る", attendances_path %></li>
+      <li><%= link_to "申請の一覧を見る", approval_requests_path %></li>
+      <li><%= link_to "パスワードを変更する", edit_password_path %></li>
+      <% if current_user.admin? %>
+        <li>
+          <%= link_to "申請を承認する", admin_approval_requests_path, data: { testid: "home-approvals-link" } %>
+          <% if pending_approval_count.positive? %><span class="muted">（承認待ち <%= pending_approval_count %>件）</span><% end %>
+        </li>
+        <li><%= link_to "従業員を管理する", admin_employees_path %></li>
+        <li><%= link_to "勤務ルールを設定する", admin_work_rule_setting_path %></li>
+      <% end %>
+    </ul>
+  </section>
+</div>

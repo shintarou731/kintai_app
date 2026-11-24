@@ -1,0 +1,62 @@
+<% content_for :title, "従業員" %>
+
+<div class="page">
+  <header class="page__header page__header--with-actions">
+    <div>
+      <p class="page__eyebrow">管理</p>
+      <h1 class="page__title">従業員</h1>
+    </div>
+    <%= link_to "＋ 従業員を追加", new_admin_employee_path, class: "button button--primary" %>
+  </header>
+
+  <nav class="tabs" aria-label="状態で絞り込み">
+    <% { "all" => "すべて", "active" => "有効", "inactive" => "無効" }.each do |status, label| %>
+      <%= link_to admin_employees_path(status: (status == "all" ? nil : status)),
+                  class: [ "tabs__item", ("is-active" if @status == status) ],
+                  "aria-current": (@status == status ? "page" : nil) do %>
+        <%= label %> <span class="tabs__count"><%= @counts[status] %></span>
+      <% end %>
+    <% end %>
+  </nav>
+
+  <% if @employees.any? %>
+    <div class="card card--flush">
+      <table class="table table--responsive" data-testid="employees-table">
+        <thead>
+          <tr>
+            <th scope="col">氏名</th>
+            <th scope="col">メールアドレス</th>
+            <th scope="col">役割</th>
+            <th scope="col">雇用区分</th>
+            <th scope="col">入社日</th>
+            <th scope="col">状態</th>
+            <th scope="col"><span class="visually-hidden">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @employees.each do |employee| %>
+            <tr class="<%= "is-inactive" unless employee.active? %>" id="<%= dom_id(employee) %>">
+              <td data-label="氏名" class="table__primary">
+                <%= employee.name %>
+                <% if employee == current_user %><span class="badge badge--outline">あなた</span><% end %>
+              </td>
+              <td data-label="メールアドレス" class="table__wrap"><%= employee.email %></td>
+              <td data-label="役割"><%= user_role_badge(employee) %></td>
+              <td data-label="雇用区分"><%= employee.employment_type_label %></td>
+              <td data-label="入社日"><%= employee.hired_on ? l(employee.hired_on) : tag.span("未設定", class: "muted") %></td>
+              <td data-label="状態"><%= user_status_badge(employee) %></td>
+              <td class="table__actions">
+                <%= link_to "編集", edit_admin_employee_path(employee), class: "button button--ghost button--small",
+                                                                       "aria-label": "#{employee.name} さんを編集" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card empty-state">
+      <p>該当する従業員はいません。</p>
+    </div>
+  <% end %>
+</div>

@@ -1,0 +1,59 @@
+<% approval_request = @approval_request %>
+<% date_label = approval_request.target_label %>
+<% content_for :title, "#{approval_request.kind_label}申請（#{date_label}）" %>
+
+<div class="page page--narrow">
+  <% if approval_request.is_a?(AttendanceCorrectionRequest) %>
+    <%= link_to "← 申請の一覧に戻る", approval_requests_path, class: "back-link" %>
+  <% else %>
+    <%= link_to "← 休暇の一覧に戻る", leave_requests_path(status: "all"), class: "back-link" %>
+  <% end %>
+  <header class="page__header">
+    <p class="page__eyebrow">申請</p>
+    <h1 class="page__title">
+      <%= approval_request.kind_label %>申請 <span class="correction-date"><%= approval_request_long_target_label(approval_request) %></span>
+      <%= approval_request_status_badge(approval_request) %>
+    </h1>
+  </header>
+
+  <section class="card section" aria-labelledby="request-info-title">
+    <h2 id="request-info-title" class="visually-hidden">申請の情報</h2>
+    <dl class="request-meta" data-testid="request-meta">
+      <div><dt>種類</dt><dd><%= approval_request.kind_label %></dd></div>
+      <div><dt><%= approval_request.is_a?(AttendanceCorrectionRequest) ? "対象日" : "期間" %></dt><dd><%= approval_request_long_target_label(approval_request) %></dd></div>
+      <div><dt>申請日時</dt><dd><%= l(approval_request.created_at, format: :long) %></dd></div>
+      <div><dt>状態</dt><dd><%= approval_request_status_badge(approval_request) %></dd></div>
+      <% if approval_request.withdrawn? && approval_request.withdrawn_at %>
+        <div><dt>取り下げ日時</dt><dd><%= l(approval_request.withdrawn_at, format: :long) %></dd></div>
+      <% end %>
+    </dl>
+  </section>
+
+  <% if approval_request.processed? %>
+    <%= render "approval_requests/review_result", approval_request: approval_request %>
+  <% end %>
+
+  <% case approval_request %>
+  <% when AttendanceCorrectionRequest %>
+    <%= render "approval_requests/correction_comparison", correction: approval_request %>
+  <% when LeaveRequest %>
+    <%= render "approval_requests/leave_details", leave: approval_request %>
+  <% when LeaveCancellationRequest %>
+    <%= render "approval_requests/leave_details", leave: approval_request.leave_request, title: "取り消す休暇",
+                                                  link_path: approval_request_path(approval_request.leave_request) %>
+  <% end %>
+
+  <section class="card section" aria-labelledby="reason-title">
+    <h2 id="reason-title" class="card__title card__title--small">理由</h2>
+    <p class="request-reason" data-testid="request-reason"><%= approval_request.reason %></p>
+  </section>
+
+  <% case approval_request %>
+  <% when LeaveRequest %>
+    <%= render "approval_requests/leave_actions", leave: approval_request, cancellation: @cancellation %>
+  <% when LeaveCancellationRequest %>
+    <%= render "approval_requests/leave_cancellation_actions", cancellation: approval_request %>
+  <% else %>
+    <%= render "approval_requests/correction_actions", approval_request: approval_request %>
+  <% end %>
+</div>

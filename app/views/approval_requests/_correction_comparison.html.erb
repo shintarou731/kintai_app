@@ -1,0 +1,28 @@
+<%# 打刻修正申請の比較表（今の記録／承認前の記録 と 申請内容）。申請者の詳細と承認画面の詳細で使う %>
+<section class="card card--flush section" aria-labelledby="comparison-title">
+  <div class="card__header">
+    <h2 id="comparison-title" class="card__title card__title--small">内容（<%= correction_comparison_base_label(correction) %>と申請内容）</h2>
+    <p class="muted card__header-lead"><%= correction_comparison_lead(correction) %></p>
+  </div>
+  <table class="table correction-comparison" data-testid="correction-comparison">
+    <thead>
+      <tr>
+        <th scope="col">項目</th>
+        <th scope="col" data-testid="comparison-base-label"><%= correction_comparison_base_label(correction) %></th>
+        <th scope="col">申請内容</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% correction_comparison_rows(correction).each do |row| %>
+        <tr class="<%= "is-changed" if row[:changed] %>" data-item="<%= row[:label] %>">
+          <th scope="row">
+            <%= row[:label] %>
+            <% if row[:changed] %><span class="badge badge--accent">変更</span><% end %>
+          </th>
+          <td data-column="current"><%= row[:current] %></td>
+          <td data-column="requested" class="correction-comparison__requested"><%= row[:requested] %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</section>

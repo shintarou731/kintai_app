@@ -1,0 +1,28 @@
+<% content_for :title, "パスワードの再設定" %>
+
+<div class="page page--narrow">
+  <%= link_to "← #{@employee.name} さんの編集に戻る", edit_admin_employee_path(@employee), class: "back-link" %>
+  <header class="page__header">
+    <h1 class="page__title">パスワードの再設定</h1>
+  </header>
+
+  <section class="card">
+    <p class="card__lead"><strong><%= @employee.name %></strong> さん（<%= @employee.email %>）の新しいパスワードを設定します。</p>
+
+    <%= form_with model: @employee, url: admin_employee_password_path(@employee), method: :patch, class: "form" do |f| %>
+      <%= render "shared/form_errors", record: @employee %>
+
+      <div class="form__field">
+        <%= f.label :password, "新しいパスワード", class: "form__label" %>
+        <%= f.password_field :password, class: "form__input", required: true, minlength: User::PASSWORD_MIN_LENGTH,
+                                        autocomplete: "new-password", aria: { describedby: "password-hint" } %>
+        <p class="form__hint" id="password-hint"><%= User::PASSWORD_MIN_LENGTH %>文字以上。設定後、本人にお伝えください。</p>
+      </div>
+
+      <div class="form__actions">
+        <%= f.submit "再設定する", class: "button button--primary" %>
+        <%= link_to "キャンセル", edit_admin_employee_path(@employee), class: "button button--ghost" %>
+      </div>
+    <% end %>
+  </section>
+</div>

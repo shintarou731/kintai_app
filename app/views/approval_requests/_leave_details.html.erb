@@ -1,0 +1,54 @@
+<%# 休暇の内容（種類・期間・区分・日数）。申請者の詳細と承認画面の詳細で使う。取消申請では「取り消す休暇」として出す %>
+<% title = local_assigns.fetch(:title, "休暇の内容") %>
+<% link_path = local_assigns[:link_path] %>
+<section class="card section leave-details" aria-labelledby="leave-details-title" data-testid="leave-details">
+  <h2 id="leave-details-title" class="card__title card__title--small">
+    <%= title %>
+    <% if link_path %><%= approval_request_status_badge(leave) %><% end %>
+  </h2>
+  <dl class="request-meta">
+    <div><dt>休暇の種類</dt><dd data-testid="leave-type"><%= leave.leave_type_label %></dd></div>
+    <div><dt>区分</dt><dd data-testid="leave-day-part"><%= leave.day_part_label %></dd></div>
+    <div><dt>期間</dt><dd data-testid="leave-period"><%= approval_request_long_target_label(leave) %>（<%= leave.dates.size %>日間）</dd></div>
+    <div>
+      <dt>日数</dt>
+      <dd data-testid="leave-days">
+        <%= format_leave_days(leave.chargeable_days) %>
+        <span class="muted leave-details__note">（<%= leave.includes_day_off? ? "休日（土日・祝日）を除いて数えます" : "休日を含みません" %><%= "・半休は0.5日" if leave.half_day? %>）</span>
+        <% if (days_off = leave_days_off_label(leave)) %>
+          <span class="leave-details__days-off" data-testid="leave-days-off">除いた休日：<%= days_off %></span>
+        <% end %>
+      </dd>
+    </div>
+    <% if leave.cancelled? %>
+      <div><dt>取消日時</dt><dd data-testid="leave-cancelled-at"><%= l(leave.cancelled_at, format: :long) %></dd></div>
+      <div>
+        <dt>取消の方法</dt>
+        <dd data-testid="leave-cancelled-method"><%= leave.directly_cancelled? ? "管理者による直接取消" : "取消申請の承認" %></dd>
+      </div>
+      <% if leave.directly_cancelled? %>
+        <div><dt>取り消した管理者</dt><dd data-testid="leave-cancelled-by"><%= leave.cancelled_by&.name || "—" %></dd></div>
+      <% end %>
+    <% end %>
+  </dl>
+  <% if leave.directly_cancelled? && leave.cancellation_reason.present? %>
+    <div class="review-result__comment">
+      <p class="review-result__label">取消の理由</p>
+      <p class="request-reason" data-testid="leave-cancellation-reason"><%= leave.cancellation_reason %></p>
+    </div>
+  <% end %>
+  <p class="leave-details__display muted" data-testid="leave-history-display">
+    勤怠履歴での表示：
+    <% if leave.effective? %>
+      <span class="badge badge--leave"><%= leave.day_label %></span>
+    <% elsif leave.pending? %>
+      <span class="badge badge--leave-pending"><%= leave.day_label %>・申請中</span>（承認されると「<%= leave.day_label %>」と表示されます）
+    <% else %>
+      <span class="badge badge--leave-off"><%= leave.day_label %></span>
+      <span data-testid="leave-history-hidden">表示されません（<%= leave.cancelled? ? "取消済み" : leave.status_label %>）</span>
+    <% end %>
+  </p>
+  <% if link_path %>
+    <p class="leave-details__link"><%= link_to "この休暇の申請を見る", link_path %></p>
+  <% end %>
+</section>

@@ -1,0 +1,94 @@
+<% report = @report %>
+<% period = report.period %>
+<% content_for :title, "予実の確認（#{period.label}）" %>
+
+<div class="page">
+  <header class="page__header page__header--with-actions history-header">
+    <div>
+      <p class="page__eyebrow">管理</p>
+      <h1 class="page__title" data-testid="period-label">
+        予実の確認：<%= period.label %>
+        <% if period == @current_period %><span class="badge badge--accent">今<%= period.unit %></span><% end %>
+      </h1>
+      <p class="history-header__range muted">
+        <span data-testid="period-range"><%= l(period.start_date, format: :short_with_day) %>〜<%= l(period.end_date, format: :short_with_day) %></span>
+        <%= period_basis_note(period) %>
+      </p>
+    </div>
+    <%= render "month_nav", period: period, current_period: @current_period,
+                            path_builder: ->(month) { admin_shift_reports_path({ month: month }.compact) } %>
+  </header>
+
+  <section class="card section" aria-labelledby="report-totals-title" data-testid="report-totals">
+    <h2 id="report-totals-title" class="card__title">この<%= period.unit %>の合計</h2>
+    <dl class="summary">
+      <div class="summary__item">
+        <dt class="summary__label">遅刻</dt>
+        <dd class="summary__value" data-testid="total-late"><%= report.total(:late_count) %><span class="summary__unit">回</span></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">早退</dt>
+        <dd class="summary__value" data-testid="total-early-leave"><%= report.total(:early_leave_count) %><span class="summary__unit">回</span></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">欠勤</dt>
+        <dd class="summary__value" data-testid="total-absence"><%= report.total(:absence_count) %><span class="summary__unit">回</span></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">該当した従業員</dt>
+        <dd class="summary__value" data-testid="marked-users"><%= report.marked_users_count %><span class="summary__unit">名</span></dd>
+      </div>
+    </dl>
+    <p class="summary__note muted">
+      公開済みのシフトと打刻を比べて数えます（許容範囲は1分。9:00 開始なら 9:01 の出勤は遅刻にせず、9:02 から遅刻）。
+      欠勤は、シフトの終了を過ぎても出勤の打刻も休暇も無い日です。勤務中・退勤漏れの日の早退は、退勤が記録されるまで数えません。
+      半休の日は、午前半休は 13:00、午後半休は 12:00 を基準に判定します。
+    </p>
+  </section>
+
+  <section class="section" aria-labelledby="report-table-title">
+    <h2 id="report-table-title" class="section__title">従業員ごとの回数</h2>
+    <div class="card card--flush">
+      <table class="table table--responsive shift-report-table" data-testid="shift-report-table">
+        <thead>
+          <tr>
+            <th scope="col">氏名</th>
+            <th scope="col" class="table__number">シフト</th>
+            <th scope="col" class="table__number">出勤</th>
+            <th scope="col" class="table__number">遅刻</th>
+            <th scope="col" class="table__number">早退</th>
+            <th scope="col" class="table__number">欠勤</th>
+            <th scope="col"><span class="visually-hidden">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% report.rows.each do |row| %>
+            <tr data-testid="shift-report-row" data-user-id="<%= row.user.id %>">
+              <td data-label="氏名" class="table__primary">
+                <%= row.user.name %>
+                <% unless row.user.active? %><span class="badge badge--muted">無効</span><% end %>
+              </td>
+              <td data-label="シフト" class="table__number" data-column="scheduled"><%= row.scheduled_days_count %>日</td>
+              <td data-label="出勤" class="table__number" data-column="worked"><%= row.working_days_count %>日</td>
+              <% { late: :late_count, early_leave: :early_leave_count, absent: :absence_count }.each do |mark, key| %>
+                <% count = row.public_send(key) %>
+                <td data-label="<%= ShiftChecksHelper::SHIFT_MARKS.dig(mark, :label) %>" class="table__number" data-column="<%= mark %>">
+                  <span class="shift-report__count <%= count.positive? ? "shift-report__count--alert" : "muted" %>"><%= count %>回</span>
+                </td>
+              <% end %>
+              <td class="table__actions">
+                <%= link_to "日ごとに見る", admin_shift_report_path(row.user, month: period.to_param),
+                            class: "button button--ghost button--small", "aria-label": "#{row.user.name} さんの日ごとの予定と実績を見る",
+                            data: { testid: "shift-report-detail-link" } %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <p class="summary__note muted">
+      有効な従業員全員と、この<%= period.unit %>にシフトか勤怠がある無効な従業員を表示します。
+      シフトの作成・公開は<%= link_to "シフト作成", admin_shifts_path %>で行います。
+    </p>
+  </section>
+</div>

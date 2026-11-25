@@ -1,0 +1,24 @@
+<%# 通知1件。押すと既読にして、関連する画面へ移る（POST /notifications/:id/reading）。compact はヘッダーのベルの一覧用 %>
+<% compact = local_assigns.fetch(:compact, false) %>
+<% relative = notification_relative_label(notification.created_at) %>
+<%= button_to notification_reading_path(notification),
+              class: [ "notification-item", ("notification-item--compact" if compact), (notification.unread? ? "is-unread" : "is-read") ],
+              form_class: "notification-item__form",
+              data: { testid: "notification-item", notification_id: notification.id, state: notification.unread? ? "unread" : "read" } do %>
+  <span class="notification-item__marker" aria-hidden="true"></span>
+  <span class="notification-item__content">
+    <span class="notification-item__meta">
+      <span class="notification-kind notification-kind--<%= notification.tone %>"><%= notification.kind_label %></span>
+      <% if notification.unread? %>
+        <span class="notification-item__unread" data-testid="notification-unread">未読</span>
+      <% end %>
+      <time class="notification-item__time" datetime="<%= notification.created_at.in_time_zone.iso8601 %>" data-testid="notification-time">
+        <%= notification_time_label(notification.created_at) %><% if relative %><span class="notification-item__relative">（<%= relative %>）</span><% end %>
+      </time>
+    </span>
+    <span class="notification-item__title" data-testid="notification-title"><%= notification.title %></span>
+    <% if notification.body.present? %>
+      <span class="notification-item__body"><%= notification.body %></span>
+    <% end %>
+  </span>
+<% end %>

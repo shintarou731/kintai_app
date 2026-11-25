@@ -1,0 +1,164 @@
+<% approval_request = @approval_request %>
+<% applicant = approval_request.user %>
+<% date_label = approval_request_target_label(approval_request) %>
+<% request_label = "#{applicant.name} さんの #{date_label} の#{approval_request.kind_label}申請" %>
+<% self_review = approval_request.self_review_status(current_user, active_admin_count: @active_admin_count) %>
+<% blockers = approval_request.pending? && self_review != :forbidden ? approval_request.approval_blockers : [] %>
+<% content_for :title, "承認：#{approval_request.kind_label}申請（#{applicant.name}・#{date_label}）" %>
+
+<div class="page page--narrow">
+  <%= link_to "← 承認の一覧に戻る", admin_approval_requests_path(status: (approval_request.processed? ? "processed" : nil)), class: "back-link" %>
+  <header class="page__header">
+    <p class="page__eyebrow">管理 / 承認</p>
+    <h1 class="page__title">
+      <%= approval_request.kind_label %>申請 <span class="correction-date"><%= applicant.name %>・<%= approval_request_long_target_label(approval_request) %></span>
+      <%= approval_request_status_badge(approval_request) %>
+    </h1>
+  </header>
+
+  <% if self_review == :forbidden %>
+    <div class="notice-box notice-box--info section" role="note" data-testid="self-review-notice">
+      <p class="notice-box__title">ご自身の申請は他の管理者が処理します</p>
+      <p class="notice-box__body">有効な管理者が<%= @active_admin_count %>名いるため、ご自身の申請は承認・却下できません。<%= approval_request.pending? ? "他の管理者の処理をお待ちください。" : "" %></p>
+    </div>
+  <% elsif self_review == :allowed && approval_request.pending? %>
+    <div class="notice-box notice-box--accent section" role="note" data-testid="self-review-notice">
+      <p class="notice-box__title">ご自身の申請です</p>
+      <p class="notice-box__body">管理者が1名のため、ご自身の申請を承認・却下できます。処理した管理者として、あなたの氏名と処理日時が記録されます。</p>
+    </div>
+  <% end %>
+
+  <section class="card section" aria-labelledby="request-info-title">
+    <h2 id="request-info-title" class="visually-hidden">申請の情報</h2>
+    <dl class="request-meta" data-testid="request-meta">
+      <div><dt>申請者</dt><dd data-testid="applicant"><%= applicant.name %><% unless applicant.active? %> <span class="badge badge--muted">無効</span><% end %></dd></div>
+      <div><dt>種類</dt><dd><%= approval_request.kind_label %></dd></div>
+      <div><dt><%= approval_request.is_a?(AttendanceCorrectionRequest) ? "対象日" : "期間" %></dt><dd><%= approval_request_long_target_label(approval_request) %></dd></div>
+      <div><dt>申請日時</dt><dd><%= l(approval_request.created_at, format: :long) %></dd></div>
+      <div><dt>状態</dt><dd><%= approval_request_status_badge(approval_request) %></dd></div>
+      <% if approval_request.withdrawn? && approval_request.withdrawn_at %>
+        <div><dt>取り下げ日時</dt><dd><%= l(approval_request.withdrawn_at, format: :long) %></dd></div>
+      <% end %>
+    </dl>
+  </section>
+
+  <% if approval_request.processed? %>
+    <%= render "approval_requests/review_result", approval_request: approval_request %>
+  <% end %>
+
+  <% if approval_request.is_a?(AttendanceCorrectionRequest) %>
+    <% if approval_request.pending? %>
+      <% current = approval_request.current_attendance %>
+      <% if approval_request.current_record_changed_since_submission? %>
+        <div class="notice-box notice-box--warning section" role="note" data-testid="record-changed-notice">
+          <p class="notice-box__title">申請した後に、勤怠記録が変わっています</p>
+          <p class="notice-box__body">ホームでの打刻などで、申請した後に今の記録が更新されています。下の「今の記録」を確認してから処理してください。</p>
+        </div>
+      <% end %>
+      <% if approval_request.open_ended? %>
+        <% plan = approval_request.approval_plan %>
+        <div class="notice-box notice-box--warning section" role="note" data-testid="open-ended-notice">
+          <p class="notice-box__title">退勤が空欄（勤務中）の申請です</p>
+          <p class="notice-box__body">
+            承認すると、出勤と休憩は申請どおりになり、
+            <% if plan.kept_clock_out %>
+              退勤は今の記録（<%= correction_time_label(plan.clock_out_at, approval_request.target_date) %>）のまま残ります。
+            <% else %>
+              退勤は未打刻のまま（勤務中）になります。
+              <% if TimeClock.clock_out_deadline_for(approval_request.requested_clock_in_at) < Time.current %>
+                出勤から24時間を過ぎているため、承認後は「退勤漏れ」の勤務になります（本人に退勤時刻を入れた申請を出し直してもらう場合は、却下してください）。
+              <% end %>
+            <% end %>
+            <% if plan.kept_breaks.any? %>
+              申請した後にホームで打刻した休憩（<%= plan.kept_breaks.size %>回）も残ります。
+            <% end %>
+          </p>
+        </div>
+      <% end %>
+    <% end %>
+    <%= render "approval_requests/correction_comparison", correction: approval_request %>
+  <% elsif approval_request.is_a?(LeaveRequest) %>
+    <% if approval_request.pending? && (worked = approval_request.attendances_in_period.to_a).any? %>
+      <div class="notice-box notice-box--warning section" role="note" data-testid="leave-attendance-notice">
+        <p class="notice-box__title">この期間に勤務の記録があります</p>
+        <p class="notice-box__body">
+          <%= worked.map { |item| l(item.work_date, format: :short_with_day) }.join("、") %> に出勤の記録があります。
+          <%= approval_request.half_day? ? "半休の場合は、勤務の記録と合わせて内容を確認してください。" : "休暇と勤務が重なっていないか確認してから処理してください。" %>
+        </p>
+      </div>
+    <% end %>
+    <%= render "approval_requests/leave_details", leave: approval_request %>
+  <% elsif approval_request.is_a?(LeaveCancellationRequest) %>
+    <% leave = approval_request.leave_request %>
+    <% if approval_request.pending? && approval_request.target_passed? %>
+      <div class="notice-box notice-box--warning section" role="note" data-testid="cancellation-passed-notice">
+        <p class="notice-box__title">取り消す休暇の開始日を過ぎています</p>
+        <p class="notice-box__body">取消申請は開始日より前に出されましたが、開始日（<%= l(leave.target_date, format: :short_with_day) %>）を過ぎました。実際に休んだかどうかを確認してから処理してください。</p>
+      </div>
+    <% end %>
+    <%= render "approval_requests/leave_details", leave: leave, title: "取り消す休暇",
+                                                  link_path: admin_approval_request_path(leave) %>
+  <% end %>
+
+  <section class="card section" aria-labelledby="reason-title">
+    <h2 id="reason-title" class="card__title card__title--small">申請の理由</h2>
+    <p class="request-reason" data-testid="request-reason"><%= approval_request.reason %></p>
+  </section>
+
+  <% if approval_request.is_a?(LeaveRequest) && approval_request.approved? %>
+    <%= render "admin/approval_requests/direct_cancellation", leave: approval_request, active_admin_count: @active_admin_count,
+                                                              direct_cancellation: @direct_cancellation ||
+                                                                LeaveDirectCancellation.new(leave_request: approval_request, admin: current_user) %>
+  <% end %>
+
+  <%# 処理済み（承認・却下）の申請は、上の「処理結果」で結果が分かるので、承認・却下のカードは出さない（二重送信などのエラーがあるときだけ出す） %>
+  <% if approval_request.pending? || approval_request.withdrawn? || @review.errors.any? %>
+  <section class="card section review-form" aria-labelledby="review-title" data-testid="review-section">
+    <h2 id="review-title" class="card__title card__title--small">承認・却下</h2>
+    <% if approval_request.pending? && self_review != :forbidden %>
+      <%= render "shared/form_errors", record: @review %>
+      <% if blockers.any? && @review.errors.empty? %>
+        <div class="notice-box notice-box--danger review-form__blockers" role="alert" data-testid="approval-blockers">
+          <p class="notice-box__title">このままでは承認できません</p>
+          <ul class="notice-box__list">
+            <% blockers.each do |message| %><li><%= message %></li><% end %>
+          </ul>
+          <p class="notice-box__body">却下して、本人に正しい内容で出し直してもらってください。</p>
+        </div>
+      <% end %>
+      <%= form_with model: @review, scope: :approval_review, url: admin_approval_request_review_path(approval_request),
+                    method: :post, class: "review-form__form", data: { testid: "review-form" } do |f| %>
+        <div class="form__field">
+          <%= f.label :comment, class: "form__label" do %>
+            コメント <span class="form__optional">却下するときは必須</span>
+          <% end %>
+          <%= f.text_area :comment, class: "form__input form__textarea", rows: 3, maxlength: ApprovalRequest::REVIEW_COMMENT_MAX_LENGTH,
+                                    placeholder: approval_request.is_a?(AttendanceCorrectionRequest) ? "例：退勤時刻はタイムカードの記録と一致しないため、確認してから出し直してください。" : "例：その日は棚卸しのため、別の日で申請し直してください。" %>
+          <p class="form__hint">コメントは申請者の「申請」画面に表示されます（<%= ApprovalRequest::REVIEW_COMMENT_MAX_LENGTH %>文字まで）。</p>
+        </div>
+        <div class="form__actions review-form__actions">
+          <%= f.button "承認する", name: "approval_review[decision]", value: "approve", type: "submit",
+                                 class: "button button--primary", disabled: blockers.any?,
+                                 data: { turbo_confirm: "#{request_label}を承認しますか？#{approval_effect_note(approval_request)}",
+                                         turbo_submits_with: "承認中…", testid: "approve-button" } %>
+          <%= f.button "却下する", name: "approval_review[decision]", value: "reject", type: "submit",
+                                 class: "button button--danger",
+                                 data: { turbo_confirm: "#{request_label}を却下しますか？#{approval_request.rejection_result_note}",
+                                         turbo_submits_with: "却下中…", testid: "reject-button" } %>
+        </div>
+        <p class="form__hint" data-testid="approval-effect"><%= approval_effect_note(approval_request) %>却下した場合、<%= approval_request.rejection_result_note %>処理した後は取り消せません。</p>
+      <% end %>
+    <% elsif approval_request.pending? %>
+      <%= render "shared/form_errors", record: @review %>
+      <p class="request-actions__note muted" data-testid="review-unavailable">ご自身の申請のため、承認・却下の操作はありません。</p>
+    <% elsif approval_request.withdrawn? %>
+      <%= render "shared/form_errors", record: @review %>
+      <p class="request-actions__note muted" data-testid="review-unavailable">この申請は申請者が取り下げたため、承認・却下できません。</p>
+    <% else %>
+      <%= render "shared/form_errors", record: @review %>
+      <p class="request-actions__note muted" data-testid="review-unavailable">この申請は処理済みです（<%= approval_request.status_label %>）。処理済みの申請は変更できません。</p>
+    <% end %>
+  </section>
+  <% end %>
+
+</div>

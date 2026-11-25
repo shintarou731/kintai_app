@@ -1,0 +1,61 @@
+<%# 勤怠履歴（F5）の日別の表。従業員本人の勤怠履歴と、管理者の月次集計の日別の勤怠（admin_view: true）で使う。
+    admin_view のときは、最後の欄が「直接修正」（edited_dates は直接修正の履歴がある日 => 件数） %>
+<% today = monthly.today %>
+<% edited_dates = local_assigns.fetch(:edited_dates, {}) %>
+<section class="card card--flush section" aria-labelledby="days-title">
+  <div class="history-legend">
+    <h2 id="days-title" class="history-legend__title">日別の勤怠</h2>
+    <p class="history-legend__items muted">
+      <span class="history-legend__swatch history-legend__swatch--saturday" aria-hidden="true"></span>土曜
+      <span class="history-legend__swatch history-legend__swatch--sunday" aria-hidden="true"></span>日曜・祝日
+      <span class="history-legend__swatch history-legend__swatch--missing" aria-hidden="true"></span>退勤漏れ
+      <span class="badge badge--warning history-legend__badge" aria-hidden="true">申請中</span>承認待ちの修正申請あり
+      <span class="badge badge--leave history-legend__badge" aria-hidden="true">有給（全日）</span>承認済みの休暇
+      <span class="badge badge--leave-day-off history-legend__badge" aria-hidden="true">休日（有給の期間中）</span>休暇の期間内の休日（日数に数えません）
+      <span class="badge badge--danger-soft history-legend__badge" aria-hidden="true">遅刻 0:05</span>遅刻・早退（1分までは付けません）
+      <span class="badge badge--danger history-legend__badge" aria-hidden="true">欠勤</span>シフトがあるのに打刻も休暇も無い日
+    </p>
+    <p class="history-legend__items muted">「予定」は公開済みのシフト、「出勤」「退勤」は実績（打刻）です。</p>
+  </div>
+
+  <table class="table history-table" data-testid="attendance-days">
+    <thead>
+      <tr>
+        <th scope="col">日付</th>
+        <th scope="col">予定（シフト）</th>
+        <th scope="col">出勤</th>
+        <th scope="col">退勤</th>
+        <th scope="col">休憩</th>
+        <th scope="col">実働</th>
+        <th scope="col">残業</th>
+        <th scope="col">深夜</th>
+        <th scope="col">備考</th>
+        <th scope="col"><%= admin_view ? "直接修正" : "修正" %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% monthly.days.each do |day| %>
+        <% day_leaves = monthly.leaves_on(day.date) %>
+        <tr class="<%= attendance_day_row_class(day, today: today, leaves: day_leaves) %>" data-date="<%= day.date.iso8601 %>">
+          <th scope="row" class="history-table__date">
+            <span class="history-table__day"><%= l(day.date, format: :short_with_day) %></span>
+            <%= attendance_holiday_label(day) %>
+            <% if day.date == today %><span class="badge badge--accent">今日</span><% end %>
+            <% if !day.worked? && day_leaves.none? && !day.scheduled? %><span class="history-table__empty-label">勤務なし</span><% end %>
+          </th>
+          <td data-label="予定" data-column="shift" class="history-table__shift"><%= attendance_shift_cell(day) %></td>
+          <td data-label="出勤" data-column="clock-in"><%= format_clock_time(day.attendance&.clock_in_at, placeholder: "") %></td>
+          <td data-label="退勤" data-column="clock-out"><%= attendance_clock_out_cell(day) %></td>
+          <td data-label="休憩" data-column="break"><%= attendance_duration_cell(day, day.break_minutes) %></td>
+          <td data-label="実働" data-column="worked" class="history-table__worked"><%= attendance_duration_cell(day, day.worked_minutes) %></td>
+          <td data-label="残業" data-column="overtime"><%= attendance_duration_cell(day, day.overtime_minutes) %></td>
+          <td data-label="深夜" data-column="night"><%= attendance_duration_cell(day, day.night_minutes) %></td>
+          <td data-column="note" class="history-table__note"><%= safe_join([ attendance_leave_badges(day_leaves, day.date), attendance_day_status_badge(day),
+                                                                              shift_mark_badges(day.shift_check), shift_check_pending_badge(day.shift_check),
+                                                                              shift_check_basis_note(day.shift_check) ].compact_blank, " ") %></td>
+          <td data-column="request" class="history-table__request"><%= admin_view ? admin_attendance_record_cell(day, monthly, edited_dates) : attendance_day_request_cell(day, monthly) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</section>

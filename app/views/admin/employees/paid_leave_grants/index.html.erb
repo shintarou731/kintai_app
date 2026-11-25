@@ -1,0 +1,139 @@
+<% content_for :title, "有給休暇の付与（#{@employee.name}）" %>
+<% account = @account %>
+<% ledger = account.ledger %>
+<% grant = @grant %>
+<% today = Date.current %>
+
+<div class="page">
+  <%= link_to "← 従業員一覧に戻る", admin_employees_path, class: "back-link" %>
+  <header class="page__header page__header--with-actions">
+    <div>
+      <p class="page__eyebrow">管理・従業員</p>
+      <h1 class="page__title">
+        <%= @employee.name %> さんの有給休暇
+        <%= user_status_badge(@employee) %>
+      </h1>
+      <p class="page__lead muted">
+        <%= @employee.employment_type_label %>・入社日 <%= @employee.hired_on ? l(@employee.hired_on) : "未設定" %>
+      </p>
+    </div>
+    <%= link_to "従業員の情報を編集", edit_admin_employee_path(@employee), class: "button button--ghost button--small" %>
+  </header>
+
+  <%= render "paid_leaves/summary", account: account, for_admin: true %>
+
+  <section class="card section" aria-labelledby="grant-form-title">
+    <h2 id="grant-form-title" class="card__title">有給休暇を付与する</h2>
+    <%= form_with model: grant, url: admin_employee_paid_leave_grants_path(@employee), method: :post,
+                  class: "form grant-form", data: { controller: "grant-form", testid: "grant-form" } do |f| %>
+      <%= render "shared/form_errors", record: grant %>
+
+      <div class="form__grid grant-form__grid">
+        <div class="form__field">
+          <%= f.label :granted_on, class: "form__label" do %>付与日 <span class="form__required">必須</span><% end %>
+          <%= f.date_field :granted_on, class: "form__input", required: true, max: today,
+                                        data: { action: "grant-form#syncExpiry", grant_form_target: "grantedOn" } %>
+          <p class="form__hint">この日から使えます。今日までの日付を指定できます。</p>
+        </div>
+
+        <div class="form__field">
+          <%= f.label :days, class: "form__label" do %>日数 <span class="form__required">必須</span><% end %>
+          <div class="input-with-unit">
+            <%= f.number_field :days, class: "form__input grant-form__days", required: true, min: 0.5, max: PaidLeaveGrant::MAX_DAYS, step: 0.5,
+                                      inputmode: "decimal", value: (grant.days && LeaveRequest.format_days(grant.days.to_r).delete_suffix("日")) %>
+            <span class="input-with-unit__unit">日</span>
+          </div>
+          <p class="form__hint">0.5日単位（例：10、7.5）。<%= PaidLeaveGrant::MAX_DAYS %>日まで。</p>
+        </div>
+
+        <div class="form__field">
+          <%= f.label :expires_on, class: "form__label" do %>有効期限 <span class="form__required">必須</span><% end %>
+          <%= f.date_field :expires_on, class: "form__input", required: true,
+                                        data: { action: "grant-form#markExpiryEdited", grant_form_target: "expiresOn" } %>
+          <p class="form__hint" data-grant-form-target="expiryHint">
+            この日まで使えます（翌日に失効）。初期値は付与日の2年後です。空欄なら付与日の2年後になります。
+          </p>
+        </div>
+
+        <div class="form__field">
+          <%= f.label :note, class: "form__label" do %>メモ <span class="form__optional">任意</span><% end %>
+          <%= f.text_field :note, class: "form__input", maxlength: PaidLeaveGrant::NOTE_MAX_LENGTH,
+                                  placeholder: "例：2026年度 定期付与（勤続2年6か月）" %>
+        </div>
+      </div>
+
+      <div class="form__actions">
+        <%= f.submit "付与する", class: "button button--primary", data: { turbo_submits_with: "登録中…" } %>
+      </div>
+      <p class="form__hint">
+        付与した日数は、付与日〜有効期限の日の有給休暇に使います。古い付与から順に消化し、有効期限を過ぎて使わなかった分は失効します。
+        過去の日付で付与を登録すると、その時期にすでに承認されている有給休暇にも充てて計算し直します。
+      </p>
+    <% end %>
+  </section>
+
+  <section class="section" aria-labelledby="grants-title" data-testid="grants">
+    <h2 id="grants-title" class="section__title">付与の一覧</h2>
+    <% if ledger.grants.any? %>
+      <div class="card card--flush">
+        <table class="table table--responsive grants-table" data-testid="grants-table">
+          <thead>
+            <tr>
+              <th scope="col">付与日</th>
+              <th scope="col">日数</th>
+              <th scope="col">有効期限</th>
+              <th scope="col">使用</th>
+              <th scope="col">残り</th>
+              <th scope="col">状態</th>
+              <th scope="col"><span class="visually-hidden">操作</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% ledger.grants.reverse_each do |item| %>
+              <tr id="<%= dom_id(item) %>" data-testid="grant-row" class="<%= "is-inactive" if ledger.grant_state(item) == :expired %>">
+                <td data-label="付与日" class="table__primary" data-column="granted-on"><%= l(item.granted_on) %></td>
+                <td data-label="日数" data-column="days"><%= format_leave_days(item.granted_days) %></td>
+                <td data-label="有効期限" data-column="expires-on"><%= l(item.expires_on) %> まで</td>
+                <td data-label="使用" data-column="used"><%= format_leave_days(ledger.used_days(item)) %></td>
+                <td data-label="残り" data-column="remaining">
+                  <% if ledger.grant_state(item) == :expired %>
+                    <span class="muted">失効 <%= format_leave_days(ledger.lapsed_days(item)) %></span>
+                  <% else %>
+                    <%= format_leave_days(ledger.remaining_days(item)) %>
+                  <% end %>
+                </td>
+                <td data-label="状態" data-column="state">
+                  <%# 375px のカード表示では td が横並び（flex）になるので、中身を1つの要素にまとめて、バッジが縦に伸びないようにする %>
+                  <div class="grants-table__state">
+                    <%= paid_leave_grant_state_badge(ledger, item) %>
+                    <span class="requests-table__review">
+                      登録：<%= item.granted_by&.name || "—" %>（<%= l(item.created_at, format: :short) %>）
+                      <% if item.note.present? %><span class="requests-table__comment"><%= item.note %></span><% end %>
+                    </span>
+                  </div>
+                </td>
+                <td class="table__actions">
+                  <%= link_to "削除", new_admin_employee_paid_leave_grant_removal_path(@employee, item),
+                              class: "button button--ghost button--small", data: { testid: "grant-remove-link" },
+                              "aria-label": "#{l(item.granted_on)} 付与の #{format_leave_days(item.granted_days)} を削除する（理由を入力）" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <div class="card empty-state" data-testid="grants-empty">
+        <p><%= account.removed_grants.any? ? "有効な付与はありません（削除した付与は下の履歴にあります）。" : "まだ付与はありません。" %></p>
+      </div>
+    <% end %>
+    <p class="summary__note muted">
+      削除は誤って登録した付与を取り除くための操作で、理由の入力が必要です。削除すると承認済み・承認待ちの有給休暇が賄えなくなる場合は削除できません。
+      <% if (removed_count = account.removed_grants.size).positive? %>
+        <span data-testid="removed-grants-count">削除した付与が <%= removed_count %>件 あります（残日数には数えません。削除の記録は下の履歴にあります）。</span>
+      <% end %>
+    </p>
+  </section>
+
+  <%= render "paid_leaves/history", account: account, leave_path: ->(leave) { admin_approval_request_path(leave) } %>
+</div>

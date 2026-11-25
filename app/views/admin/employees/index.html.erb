@@ -1,0 +1,90 @@
+<% content_for :title, "従業員" %>
+
+<div class="page">
+  <header class="page__header page__header--with-actions">
+    <div>
+      <p class="page__eyebrow">管理</p>
+      <h1 class="page__title">従業員</h1>
+    </div>
+    <%= link_to "＋ 従業員を追加", new_admin_employee_path, class: "button button--primary" %>
+  </header>
+
+  <nav class="tabs" aria-label="状態で絞り込み">
+    <% { "all" => "すべて", "active" => "有効", "inactive" => "無効" }.each do |status, label| %>
+      <%= link_to admin_employees_path(status: (status == "all" ? nil : status)),
+                  class: [ "tabs__item", ("is-active" if @status == status) ],
+                  "aria-current": (@status == status ? "page" : nil) do %>
+        <%= label %> <span class="tabs__count"><%= @counts[status] %></span>
+      <% end %>
+    <% end %>
+  </nav>
+
+  <% if @employees.any? %>
+    <p class="muted list-caption" data-testid="employees-paid-leave-caption">
+      「有給の残り」は承認済みの有給休暇を引いた残日数です。「当年度の取得」は<%= l(@fiscal_year.begin) %>〜<%= l(@fiscal_year.end) %>（4月1日〜翌年3月31日）の承認済みの有給休暇の日数で、取得予定を含みます。
+      <span class="badge badge--danger">5日未満</span> は当年度の取得が<%= PaidLeaveAccount::ANNUAL_TARGET_DAYS %>日に届いていない人です。
+      当年度に使える有給の付与（付与日〜有効期限が当年度と重なる付与）が無い人には付けません。
+    </p>
+    <div class="card card--flush">
+      <table class="table table--responsive" data-testid="employees-table">
+        <thead>
+          <tr>
+            <th scope="col">氏名</th>
+            <th scope="col">メールアドレス</th>
+            <th scope="col">役割</th>
+            <th scope="col">雇用区分</th>
+            <th scope="col">入社日</th>
+            <th scope="col">状態</th>
+            <th scope="col">有給の残り</th>
+            <th scope="col">当年度の取得</th>
+            <th scope="col"><span class="visually-hidden">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @employees.each do |employee| %>
+            <tr class="<%= "is-inactive" unless employee.active? %>" id="<%= dom_id(employee) %>">
+              <td data-label="氏名" class="table__primary">
+                <%= employee.name %>
+                <% if employee == current_user %><span class="badge badge--outline">あなた</span><% end %>
+              </td>
+              <td data-label="メールアドレス" class="table__wrap"><%= employee.email %></td>
+              <td data-label="役割"><%= user_role_badge(employee) %></td>
+              <td data-label="雇用区分"><%= employee.employment_type_label %></td>
+              <td data-label="入社日"><%= employee.hired_on ? l(employee.hired_on) : tag.span("未設定", class: "muted") %></td>
+              <td data-label="状態"><%= user_status_badge(employee) %></td>
+              <% paid_leave = @paid_leaves.fetch(employee.id) %>
+              <td data-label="有給の残り" data-column="paid-leave-balance">
+                <%= link_to format_leave_days(paid_leave.balance), admin_employee_paid_leave_grants_path(employee),
+                            class: "employees-table__paid-leave", "aria-label": "#{employee.name} さんの有給休暇（残り #{format_leave_days(paid_leave.balance)}）を見る・付与する" %>
+                <% if paid_leave.shortage? %>
+                  <span class="badge badge--warning" data-testid="paid-leave-shortage-badge" title="付与された日数を超えて取得した有給休暇があります">超過 <%= format_leave_days(paid_leave.shortage) %></span>
+                <% elsif !paid_leave.any_grants? %>
+                  <span class="muted employees-table__sub">付与なし</span>
+                <% end %>
+              </td>
+              <td data-label="当年度の取得" data-column="paid-leave-taken">
+                <%= format_leave_days(paid_leave.fiscal_year_taken_days) %>
+                <% if paid_leave.fiscal_year_scheduled_days.positive? %>
+                  <span class="muted employees-table__sub">（うち予定 <%= format_leave_days(paid_leave.fiscal_year_scheduled_days) %>）</span>
+                <% end %>
+                <% if paid_leave.annual_target_alert? %>
+                  <span class="badge badge--danger" data-testid="below-annual-target" title="当年度の有給休暇の取得が<%= PaidLeaveAccount::ANNUAL_TARGET_DAYS %>日未満です">5日未満</span>
+                <% elsif !paid_leave.fiscal_year_grants? %>
+                  <span class="muted employees-table__sub" data-testid="no-fiscal-year-grants" title="当年度に使える有給の付与が無いため、年<%= PaidLeaveAccount::ANNUAL_TARGET_DAYS %>日の印の対象外です">当年度の付与なし</span>
+                <% end %>
+              </td>
+              <td class="table__actions">
+                <%= link_to "編集", edit_admin_employee_path(employee), class: "button button--ghost button--small",
+                                                                       "aria-label": "#{employee.name} さんを編集" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card empty-state">
+      <p>該当する従業員はいません。</p>
+    </div>
+  <% end %>
+</div>

@@ -2,14 +2,1678 @@
  * This is a manifest file that'll be compiled into application.css, which will include all the files
  * listed below.
  *
- * Any CSS (and SCSS, if configured) file within this directory, lib/assets/stylesheets, or any plugin's
- * vendor/assets/stylesheets directory can be referenced here using a relative path.
- *
- * You're free to add application-wide styles to this file and they'll appear at the bottom of the
- * compiled file so the styles you add here take precedence over styles defined in any other CSS
- * files in this directory. Styles in this file should be added after the last require_* statement.
- * It is generally better to create a new file per style scope.
- *
  *= require_tree .
  *= require_self
  */
+
+/* ===== デザイントークン ===== */
+:root {
+  --color-bg: #f5f7f8;
+  --color-surface: #ffffff;
+  --color-border: #e1e6e8;
+  --color-text: #1f2a30;
+  --color-text-muted: #64737a;
+
+  --color-accent: #0f766e;         /* ティール */
+  --color-accent-hover: #115e59;
+  --color-accent-soft: #e6f4f2;
+
+  --color-success: #15803d;        /* 勤務中 */
+  --color-success-soft: #e8f6ec;
+  --color-warning: #b45309;        /* 休憩中 */
+  --color-warning-soft: #fdf4e3;
+  --color-neutral: #6b7280;        /* 未出勤・退勤済み */
+  --color-neutral-soft: #f0f2f4;
+  --color-danger: #b91c1c;         /* 却下・アラート */
+  --color-danger-soft: #fdecec;
+  --color-saturday: #1d4ed8;        /* 土曜 */
+  --color-saturday-soft: #f1f6fd;
+  --color-sunday: #b91c1c;          /* 日曜 */
+  --color-sunday-soft: #fdf4f4;
+  /* 祝日は日曜と同じ赤（--color-sunday / --color-sunday-soft）で示す */
+
+  --radius: 8px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --header-height: 56px;
+  /* 375px のカード表示の表で、左に置くラベルの幅 */
+  --responsive-label-width: 98px;
+  --font-sans: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
+}
+
+/* ===== ベース ===== */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+a { color: var(--color-accent); }
+a:hover { color: var(--color-accent-hover); }
+
+.muted { color: var(--color-text-muted); }
+
+/* ===== ヘッダー（上部固定） ===== */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.header__inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 1120px;
+  height: var(--header-height);
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.header__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.header__brand:hover { color: var(--color-text); }
+
+.header__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+}
+.header__logo--large { width: 40px; height: 40px; font-size: 20px; border-radius: 8px; }
+
+.header__title { font-size: 17px; }
+
+.header__nav { flex: 1; min-width: 0; }
+
+/* ===== ナビゲーション ===== */
+.nav { display: flex; align-items: center; gap: 4px; }
+
+.nav__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nav__link:hover { background: var(--color-neutral-soft); color: var(--color-text); }
+.nav__link.is-active { background: var(--color-accent-soft); color: var(--color-accent); }
+
+.nav__menu { position: relative; }
+.nav__menu-toggle { list-style: none; user-select: none; }
+.nav__menu-toggle::-webkit-details-marker { display: none; }
+.nav__menu-toggle::after {
+  content: "";
+  width: 0;
+  height: 0;
+  margin-left: 6px;
+  border-top: 5px solid currentColor;
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+}
+.nav__menu[open] > .nav__menu-toggle::after { transform: rotate(180deg); }
+
+.nav__menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 180px;
+  max-width: calc(100vw - 24px);
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.nav__menu-item {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+.nav__menu-item:hover { background: var(--color-neutral-soft); color: var(--color-text); }
+.nav__menu-item.is-active { background: var(--color-accent-soft); color: var(--color-accent); font-weight: 600; }
+
+.header__user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.header__user-name {
+  overflow: hidden;
+  max-width: 14em;
+  color: var(--color-text);
+  font-weight: 600;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header__user-name:hover { color: var(--color-accent); text-decoration: underline; }
+
+.header__logout { margin: 0; }
+
+/* ===== レイアウト ===== */
+.main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.page__header { margin: 8px 0 16px; }
+.page__header--with-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.page__header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.page__eyebrow { margin: 0; color: var(--color-text-muted); font-size: 13px; font-weight: 600; }
+.page__title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 22px; }
+.page--narrow { max-width: 720px; }
+/* ホーム：打刻カードを画面の中央に置く */
+.page--home { margin-inline: auto; }
+
+.section + .section { margin-top: 16px; }
+
+.back-link { display: inline-block; margin-bottom: 4px; font-size: 14px; text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* 途中で折り返さない（「22:00〜翌6:00」などの時間帯） */
+.nowrap { white-space: nowrap; }
+
+.empty-state { color: var(--color-text-muted); text-align: center; }
+
+.quick-links__list { margin: 0; padding-left: 20px; }
+
+/* ===== カード ===== */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.card__title { margin: 0 0 8px; font-size: 20px; }
+.card__lead { margin: 0 0 20px; color: var(--color-text-muted); }
+.card__lead:last-child { margin-bottom: 0; }
+.card--flush { padding: 0; overflow: hidden; }
+
+.welcome { margin: 0 0 8px; font-size: 18px; }
+
+/* ===== バッジ ===== */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.badge--accent { background: var(--color-accent-soft); color: var(--color-accent); }
+.badge--muted { background: var(--color-neutral-soft); color: var(--color-neutral); }
+.badge--success { background: var(--color-success-soft); color: var(--color-success); }
+.badge--outline { background: transparent; border: 1px solid var(--color-border); color: var(--color-text-muted); }
+.badge--warning { background: var(--color-warning-soft); color: var(--color-warning); }
+.badge--danger { background: var(--color-danger); color: #fff; }
+
+/* ===== タブ（絞り込み） ===== */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.tabs__item {
+  margin-bottom: -1px;
+  padding: 8px 14px;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+.tabs__item:hover { color: var(--color-text); }
+.tabs__item.is-active { border-bottom-color: var(--color-accent); color: var(--color-accent); }
+.tabs__count {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-neutral-soft);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ===== 表 ===== */
+.table { width: 100%; border-collapse: collapse; }
+.table th,
+.table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+}
+.table th {
+  background: #fafbfc;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover { background: #fafcfc; }
+.table tr.is-inactive td { color: var(--color-text-muted); }
+.table__primary { font-weight: 600; }
+.table__wrap { overflow-wrap: anywhere; }
+.table__actions { text-align: right; white-space: nowrap; }
+
+/* ===== ボタン ===== */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.button:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.35); outline-offset: 2px; }
+
+.button--primary { background: var(--color-accent); color: #fff; }
+.button--primary:hover { background: var(--color-accent-hover); }
+
+.button--ghost { background: transparent; border-color: var(--color-border); color: var(--color-text); }
+.button--ghost:hover { background: var(--color-neutral-soft); }
+
+.button--danger { background: var(--color-surface); border-color: #f3c4c4; color: var(--color-danger); }
+.button--danger:hover { background: var(--color-danger-soft); }
+
+.button--small { min-height: 32px; padding: 4px 12px; font-size: 13px; }
+.button--block { width: 100%; }
+
+/* ===== フォーム ===== */
+.form__field { margin-bottom: 16px; }
+
+.form__label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.form__input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--color-text);
+  font: inherit;
+}
+.form__input:focus {
+  border-color: var(--color-accent);
+  outline: 3px solid rgba(15, 118, 110, 0.2);
+}
+
+/* Rails がエラー項目を囲む要素 */
+.field_with_errors { display: contents; }
+.field_with_errors .form__input { border-color: var(--color-danger); background: var(--color-danger-soft); }
+.field_with_errors .form__label { color: var(--color-danger); }
+
+.form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.form__required {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.form__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+select.form__input:disabled { background: var(--color-neutral-soft); color: var(--color-text-muted); cursor: not-allowed; }
+
+.form__hint { margin: 4px 0 0; color: var(--color-text-muted); font-size: 13px; }
+
+.form-errors {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid #f3c4c4;
+  border-radius: var(--radius);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.form-errors__title { margin: 0 0 4px; font-weight: 700; }
+.form-errors__list { margin: 0; padding-left: 20px; }
+
+/* ===== フラッシュメッセージ（画面上部） ===== */
+.flash-area { margin-bottom: 16px; }
+
+.flash {
+  padding: 12px 16px;
+  border: 1px solid;
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+.flash + .flash { margin-top: 8px; }
+.flash--notice { background: var(--color-success-soft); border-color: #bfe3ca; color: var(--color-success); }
+.flash--alert { background: var(--color-danger-soft); border-color: #f3c4c4; color: var(--color-danger); }
+
+/* ===== 未ログイン画面（ログイン・初期セットアップ） ===== */
+.app--guest .main { max-width: 440px; padding-top: 48px; }
+
+.auth__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.auth__app-name { font-size: 22px; font-weight: 700; }
+
+.auth__note { margin: 16px 0 0; color: var(--color-text-muted); font-size: 13px; }
+
+/* ===== 状態表示（勤務中＝緑、休憩中＝黄、未出勤・退勤済み＝グレー） ===== */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.status::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status--working { background: var(--color-success-soft); color: var(--color-success); }
+.status--neutral { background: var(--color-neutral-soft); color: var(--color-neutral); }
+.status--break { background: var(--color-warning-soft); color: var(--color-warning); }
+
+/* ===== ホーム：打刻 ===== */
+.punch { text-align: center; }
+.punch__date { margin: 0; color: var(--color-text-muted); font-size: 17px; font-weight: 600; }
+.punch__time {
+  margin: 4px 0 12px;
+  font-size: 56px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+}
+.punch__status { margin: 0 0 12px; }
+.punch__note {
+  margin: 0 auto 12px;
+  max-width: 32em;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+  font-size: 14px;
+}
+.punch__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 440px;
+  margin: 8px auto 12px;
+}
+.punch__form { margin: 0; }
+.punch__hint { margin: 0; font-size: 14px; }
+
+.punch-button {
+  width: 100%;
+  min-height: 72px;
+  padding: 12px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, transform 0.05s;
+}
+.punch-button:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.35); outline-offset: 2px; }
+.punch-button:active:not(:disabled) { transform: translateY(1px); }
+.punch-button--in { background: var(--color-accent); color: #fff; }
+.punch-button--in:hover:not(:disabled) { background: var(--color-accent-hover); }
+.punch-button--out { background: var(--color-surface); border-color: var(--color-accent); color: var(--color-accent); }
+.punch-button--out:hover:not(:disabled) { background: var(--color-accent-soft); }
+/* 休憩ボタンは出勤・退勤より一回り小さく、休憩中＝黄の色味にする */
+.punch-button--break,
+.punch-button--break-end { min-height: 56px; font-size: 18px; }
+.punch-button--break { background: var(--color-surface); border-color: var(--color-warning); color: var(--color-warning); }
+.punch-button--break:hover:not(:disabled) { background: var(--color-warning-soft); }
+.punch-button--break-end { background: var(--color-warning); color: #fff; }
+.punch-button--break-end:hover:not(:disabled) { background: #92400e; }
+.punch-button:disabled {
+  background: var(--color-neutral-soft);
+  border-color: var(--color-border);
+  color: #a3acb2;
+  cursor: not-allowed;
+}
+
+/* ===== ホーム：今日の勤務 ===== */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 0;
+}
+.summary__item {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fafbfc;
+}
+.summary__label { color: var(--color-text-muted); font-size: 13px; font-weight: 600; }
+.summary__value {
+  margin: 2px 0 0;
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.summary__sub { color: var(--color-text-muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.summary__previous { margin: 12px 0 0; font-size: 14px; }
+.summary__note { margin: 12px 0 0; font-size: 12px; }
+
+/* 今日の休憩の記録 */
+.breaks { margin-top: 16px; }
+.breaks__title { margin: 0 0 6px; color: var(--color-text-muted); font-size: 13px; font-weight: 700; }
+.breaks__list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--color-border); border-radius: var(--radius); }
+.breaks__item {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 12px;
+  font-variant-numeric: tabular-nums;
+}
+.breaks__item + .breaks__item { border-top: 1px solid var(--color-border); }
+.breaks__item--open { background: var(--color-warning-soft); }
+.breaks__number { flex: 0 0 4em; color: var(--color-text-muted); font-size: 13px; }
+.breaks__range { flex: 1; font-weight: 600; }
+.breaks__duration { font-weight: 700; }
+.breaks__item--open .breaks__duration { color: var(--color-warning); }
+
+/* ===== 勤怠履歴（月次） ===== */
+.history-header__range { margin: 2px 0 0; font-size: 14px; }
+
+.month-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.summary__unit { margin-left: 2px; font-size: 15px; font-weight: 600; }
+
+.history-progress {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  font-size: 14px;
+}
+
+.history-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+.history-legend__title { margin: 0; font-size: 17px; }
+.history-legend__items { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0; font-size: 13px; }
+.history-legend__swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+}
+.history-legend__swatch--saturday { background: var(--color-saturday-soft); border-color: #c7d7f5; }
+.history-legend__swatch--sunday { background: var(--color-sunday-soft); border-color: #f3cccc; }
+.history-legend__swatch--missing { background: var(--color-danger); border-color: var(--color-danger); }
+
+.history-table th,
+.history-table td { padding: 8px 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.history-table tbody th { background: transparent; color: var(--color-text); font-size: 14px; }
+.history-table__date { width: 9em; }
+.history-table__date .badge { margin-left: 4px; }
+.history-table__empty-label { display: none; }
+.history-table__worked { font-weight: 700; }
+.history-table__next-day {
+  margin-right: 3px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.history-table__missing { color: var(--color-danger); font-weight: 700; }
+.history-table__open-hint { display: block; margin-top: 4px; font-size: 12px; color: var(--color-danger); }
+
+/* 土曜＝青、日曜＝赤の淡い背景 */
+.history-row--saturday { background: var(--color-saturday-soft); }
+.history-row--saturday .history-table__day { color: var(--color-saturday); }
+.history-row--sunday { background: var(--color-sunday-soft); }
+.history-row--sunday .history-table__day { color: var(--color-sunday); }
+.history-row--holiday { background: var(--color-sunday-soft); }
+.history-row--holiday .history-table__day { color: var(--color-sunday); }
+/* 祝日名（例：「勤労感謝の日」）。カード表示でも日付の横に出す */
+.history-table__holiday {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid #f3cccc;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-sunday);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.history-row--empty td { color: var(--color-text-muted); }
+.history-table tbody tr.history-row--saturday:hover { background: #e9f0fb; }
+.history-table tbody tr.history-row--sunday:hover,
+.history-table tbody tr.history-row--holiday:hover { background: #fbeaea; }
+/* 今日：左端にアクセントの線 */
+.history-row--today > :first-child { box-shadow: inset 4px 0 0 var(--color-accent); }
+/* 退勤漏れ：赤い線と背景で目立たせる */
+.history-table tbody tr.history-row--missing { background: #fbe3e3; }
+.history-row--missing > :first-child { box-shadow: inset 4px 0 0 var(--color-danger); }
+
+/* 総残業時間の下に出す警告ライン（超えたら赤） */
+.summary__caption { display: block; margin: 2px 0 0; color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+.summary__caption--danger { color: var(--color-danger); }
+
+/* ===== 勤務ルール設定 ===== */
+.page__lead { margin: 4px 0 0; font-size: 14px; }
+.settings-meta { margin: 0 0 16px; font-size: 13px; }
+.form__input--duration { font-variant-numeric: tabular-nums; }
+.input-with-unit { display: flex; align-items: center; gap: 8px; }
+.input-with-unit .form__input { flex: 1; min-width: 0; }
+.input-with-unit__unit { flex: none; font-weight: 600; }
+.settings-periods__header { padding: 16px 16px 4px; }
+.settings-periods__header .card__title { margin-bottom: 2px; font-size: 17px; }
+.settings-periods__lead { margin: 0 0 8px; font-size: 13px; }
+.table tbody tr.is-selected { background: var(--color-accent-soft); }
+.table tbody tr.is-selected .badge { margin-left: 4px; }
+
+/* ===== 申請（一覧・詳細・打刻修正申請の入力） ===== */
+.card__title--small { font-size: 17px; }
+.card__header { padding: 16px 16px 8px; }
+.card__header .card__title { margin-bottom: 2px; }
+.card__header-lead { margin: 0; font-size: 13px; }
+.correction-date { color: var(--color-text-muted); font-size: 16px; font-weight: 600; }
+
+.form__optional {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+.form__textarea { min-height: 84px; resize: vertical; }
+
+/* 日付（当日／翌日）＋時刻の入力 */
+.time-input { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.time-input__day {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-neutral-soft);
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.time-input__select { flex: 0 0 auto; width: auto; padding-right: 4px; font-size: 14px; }
+.time-input__time { flex: 1 1 7.5em; min-width: 7.5em; font-variant-numeric: tabular-nums; }
+
+.correction-form__times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
+
+.correction-current__list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 4px 0 8px; }
+.correction-current__list dt { color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+.correction-current__list dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.correction-current__empty { margin: 0; }
+
+.correction-breaks { min-width: 0; margin: 0 0 16px; padding: 0; border: 0; }
+.correction-breaks legend { padding: 0; }
+.correction-breaks__hint { margin-top: 0; }
+.correction-breaks__list { display: grid; gap: 8px; margin: 8px 0; padding: 0; list-style: none; }
+.break-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fafbfc;
+}
+.break-row__label { flex: 0 0 3.5em; color: var(--color-text-muted); font-size: 13px; font-weight: 700; }
+.break-row__fields { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.break-row__fields .time-input { flex: 1 1 15em; }
+.break-row__separator { color: var(--color-text-muted); }
+/* 「開始」「終了」の見出しは、縦に並ぶスマートフォン幅でだけ出す */
+.time-input__caption { display: none; flex: 0 0 2.5em; color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+.break-row.is-invalid { border-color: #f3c4c4; background: var(--color-danger-soft); }
+.break-row.is-invalid .break-row__label { color: var(--color-danger); }
+.break-row.is-invalid .form__input { border-color: var(--color-danger); }
+
+.request-start__form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.request-start__field { flex: 0 1 220px; min-width: 0; }
+.request-start .form__hint { margin-top: 8px; }
+
+.requests-table__summary { font-variant-numeric: tabular-nums; }
+.table tbody tr.is-highlighted { background: var(--color-accent-soft); }
+
+.request-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin: 0; }
+.request-meta dt { color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+.request-meta dd { margin: 0; font-weight: 600; }
+.request-reason { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.request-actions__note { margin: 0 0 12px; font-size: 14px; }
+.request-actions__form { margin: 0; }
+
+.correction-comparison tbody th { background: transparent; color: var(--color-text); }
+.correction-comparison tbody tr:last-child th { border-bottom: none; }
+.correction-comparison tbody th .badge { margin-left: 4px; }
+.correction-comparison td { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.correction-comparison tbody tr.is-changed { background: var(--color-accent-soft); }
+.correction-comparison tbody tr.is-changed .correction-comparison__requested { color: var(--color-accent-hover); font-weight: 700; }
+
+/* 勤怠履歴の「修正」欄 */
+.history-table__request { width: 1%; text-align: right; }
+.history-table__request-link { font-size: 13px; font-weight: 600; text-decoration: none; }
+.history-table__request-link:hover { text-decoration: underline; }
+a.history-table__pending { text-decoration: none; }
+a.history-table__pending:hover { color: var(--color-warning); text-decoration: underline; }
+.history-legend__badge { margin-left: 8px; }
+
+/* ===== お知らせ枠 ===== */
+.notice-box { padding: 12px 16px; border: 1px solid; border-radius: var(--radius); }
+.notice-box--danger { background: var(--color-danger-soft); border-color: #f3c4c4; color: var(--color-danger); }
+.notice-box__title { margin: 0 0 4px; font-weight: 700; }
+.notice-box__body { margin: 0; font-size: 14px; }
+.notice-box__link { color: inherit; font-weight: 700; white-space: nowrap; }
+.notice-box__actions { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+.notice-box--info { background: var(--color-neutral-soft); border-color: var(--color-border); color: var(--color-text); }
+.notice-box--accent { background: var(--color-accent-soft); border-color: #b9ded9; color: var(--color-accent-hover); }
+.notice-box--warning { background: var(--color-warning-soft); border-color: #f1d9a8; color: #7c3a06; }
+.notice-box__list { margin: 0 0 6px; padding-left: 20px; font-size: 14px; }
+
+/* ===== 承認（管理者） ===== */
+/* ナビの件数バッジ（承認待ち） */
+.nav__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.nav__menu-item--with-badge { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.list-caption { margin: 0 0 8px; font-size: 13px; }
+.approvals-table td { vertical-align: middle; }
+.approvals-table .table__primary .badge { margin-left: 4px; }
+.table tbody tr.is-own { background: #fafbfb; }
+.review-form__blockers { margin-bottom: 16px; }
+.review-form__actions { margin-top: 0; }
+.review-form__form .form__hint:last-child { margin-top: 12px; }
+.review-result--approved { border-left: 4px solid var(--color-success); }
+.review-result--rejected { border-left: 4px solid var(--color-danger); }
+.review-result__comment { margin-top: 12px; }
+.review-result__label { margin: 0 0 2px; color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+/* 本人の申請一覧：状態の下に処理者とコメント */
+.requests-table__review { display: block; margin-top: 4px; color: var(--color-text-muted); font-size: 12px; white-space: normal; }
+.requests-table__comment { display: block; overflow-wrap: anywhere; }
+
+/* ===== 休暇 ===== */
+/* 勤怠履歴などの休暇の表示（承認済み＝ティールの塗り、承認待ち＝点線の枠） */
+.badge--leave { background: var(--color-accent); color: #fff; }
+.badge--leave-pending { background: transparent; border: 1px dashed var(--color-accent); color: var(--color-accent); }
+/* 勤怠履歴に表示されない休暇（取消済み・却下・取り下げ）：灰色の線と打ち消し線 */
+/* 休暇の期間内の休日（日数に数えない）：薄い点線の枠 */
+.badge--leave-day-off { background: #fff; border: 1px dashed var(--color-border); color: var(--color-text-muted); font-weight: 500; }
+.badge--leave-off { background: transparent; border: 1px solid var(--color-border); color: var(--color-text-muted); text-decoration: line-through; }
+a.history-table__leave { text-decoration: none; }
+a.history-table__leave:hover { opacity: 0.85; text-decoration: underline; }
+.history-table__note .badge + .badge { margin-left: 4px; }
+.history-table tbody tr.history-row--leave:not(.history-row--day-off) { background: #f3faf9; }
+.summary__leaves { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 14px 0 0; font-size: 14px; font-weight: 600; }
+.summary__leaves-label { color: var(--color-text-muted); font-size: 13px; font-weight: 600; }
+.summary__leaves-link { margin-left: auto; font-size: 13px; }
+
+/* 休暇申請の入力：種類・区分は押しやすい選択肢、期間は開始日〜終了日 */
+.choice-group { min-width: 0; margin: 0 0 16px; padding: 0; border: 0; }
+.choice-group legend { padding: 0; }
+.choice-group__items { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.choice { position: relative; display: inline-flex; }
+.choice__input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.choice__label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-weight: 600;
+}
+.choice__input:checked + .choice__label { border-color: var(--color-accent); background: var(--color-accent-soft); color: var(--color-accent-hover); }
+.choice__input:checked + .choice__label::before { content: "✓"; margin-right: 6px; }
+.choice__input:focus-visible + .choice__label { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.date-range { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.date-range__field { display: flex; flex: 1 1 11em; flex-direction: column; min-width: 0; max-width: 16em; }
+.date-range__caption { margin-bottom: 2px; color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+.date-range__separator { padding-bottom: 10px; color: var(--color-text-muted); }
+.date-range .form__input[readonly] { background: var(--color-neutral-soft); color: var(--color-text-muted); }
+.leave-form__days { margin: 6px 0 0; color: var(--color-accent-hover); font-size: 14px; font-weight: 700; }
+.leave-form__days:empty { display: none; }
+.leaves-table td { vertical-align: middle; }
+.request-start__leave { margin: 0; font-size: 14px; }
+
+/* 休暇の詳細・取消申請 */
+.leave-details__note { font-size: 12px; font-weight: 400; }
+.leave-details__days-off { display: block; margin-top: 2px; color: var(--color-text-muted); font-size: 12px; font-weight: 400; }
+.leave-details__display { margin: 12px 0 0; font-size: 13px; }
+.leave-details__link { margin: 8px 0 0; font-size: 14px; }
+.leave-cancel { margin: 0 0 16px; }
+.leave-cancel__title { margin: 0 0 4px; font-size: 15px; }
+.leave-cancel__form .form__actions { margin-top: 0; }
+.leave-cancel__history { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+.leave-cancel__list { margin: 0; padding-left: 20px; font-size: 14px; }
+/* 管理者による休暇の直接取消（承認画面の休暇の詳細） */
+.leave-direct-cancel .notice-box { margin: 0 0 12px; }
+.leave-direct-cancel ul.request-actions__note { margin: 0 0 8px; padding-left: 20px; }
+.approvals-table__cell { min-width: 0; }
+.approvals-table__cancel { display: block; margin-top: 4px; font-size: 13px; color: var(--color-text-muted); overflow-wrap: anywhere; }
+
+/* ===== 有給休暇の残日数（F10） ===== */
+.section__title { margin: 0 0 8px; font-size: 18px; }
+.leave-form__days--warning { color: var(--color-danger); }
+.leave-details__shortfall { color: var(--color-danger); font-weight: 700; }
+.paid-leave-summary__main { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px; }
+.paid-leave-summary__balance { margin: 0; color: var(--color-accent-hover); font-size: 36px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.paid-leave-summary__facts { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; }
+.paid-leave-summary__facts dt { color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+.paid-leave-summary__facts dd { margin: 0; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.paid-leave-summary__facts dd .muted { font-size: 12px; font-weight: 400; }
+.paid-leave-summary__note { margin: 12px 0 0; font-size: 14px; }
+.paid-leave-summary__alert { margin-top: 12px; }
+.paid-leave-history__days { font-weight: 700; font-variant-numeric: tabular-nums; }
+.paid-leave-history__row--grant .paid-leave-history__days { color: var(--color-accent-hover); }
+.paid-leave-history__row--lapse .paid-leave-history__days { color: var(--color-danger); }
+.paid-leave-history__returned { color: var(--color-text-muted); font-size: 12px; font-weight: 400; }
+.paid-leave-history__detail { font-size: 14px; }
+.paid-leave-history__detail .badge { margin-left: 4px; }
+.paid-leave-history__source,
+.paid-leave-history__note { display: block; color: var(--color-text-muted); font-size: 12px; }
+.paid-leave-history__uncovered { display: block; color: var(--color-danger); font-size: 12px; font-weight: 600; }
+.home-paid-leave { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.home-paid-leave__main { display: flex; align-items: baseline; gap: 12px; }
+.home-paid-leave__title { margin: 0; color: var(--color-text-muted); font-size: 14px; font-weight: 600; }
+.home-paid-leave__balance { margin: 0; color: var(--color-accent-hover); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.home-paid-leave__sub { flex: 1 1 12em; margin: 0; font-size: 13px; }
+.home-paid-leave__alert { display: block; color: #7c3a06; font-weight: 600; }
+.home-paid-leave__link { margin-left: auto; }
+.employees-table__paid-leave { font-weight: 700; font-variant-numeric: tabular-nums; }
+.employees-table__sub { font-size: 12px; }
+.grant-form__days { max-width: 8em; }
+.grants-table td { vertical-align: middle; }
+
+/* 375px の付与の一覧・履歴：td の中身を1つの要素にまとめる（バッジが縦に伸びない・内容の列を広く使う） */
+.grants-table__state,
+.paid-leave-history__detail-body { min-width: 0; }
+
+/* ===== シフト作成（F11） ===== */
+.badge--shift-draft { background: #fff; border: 1px dashed var(--color-neutral); color: var(--color-neutral); }
+.badge--danger-soft { background: var(--color-danger-soft); color: var(--color-danger); }
+.button.is-disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+.button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.shift-toolbar { display: flex; flex-direction: column; gap: 14px; padding: 16px 20px; }
+.shift-toolbar__week { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.shift-week-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.shift-toolbar__range { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 4px; font-size: 18px; font-variant-numeric: tabular-nums; }
+.shift-week-nav__today { font-size: 14px; font-weight: 600; }
+.shift-week-jump { display: flex; align-items: center; gap: 6px; margin: 0; }
+.shift-week-jump__input { width: auto; min-height: 34px; padding: 4px 8px; font-size: 14px; }
+.shift-toolbar__status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+.shift-toolbar__state { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.shift-toolbar__meta { color: var(--color-text-muted); font-size: 13px; }
+.shift-toolbar__meta strong { color: var(--color-text); }
+.shift-toolbar__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.shift-toolbar__form { margin: 0; }
+
+.shift-brush { padding: 14px 20px; }
+.shift-brush__title { margin: 0 0 8px; font-size: 15px; }
+.shift-brush__items { display: flex; flex-wrap: wrap; gap: 6px; }
+.shift-brush__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.shift-brush__item:hover { border-color: var(--color-accent); color: var(--color-accent-hover); }
+.shift-brush__item.is-active { border-color: var(--color-accent); background: var(--color-accent); color: #fff; }
+.shift-brush__item.is-active:hover { color: #fff; }
+.shift-brush__item.is-active::before { content: "✓"; }
+.shift-brush__time { font-weight: 400; font-variant-numeric: tabular-nums; }
+.shift-brush .form__hint { margin-top: 8px; }
+
+.shift-board__header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.shift-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0 0 8px; }
+.shift-legend__note { font-size: 12px; }
+.shift-board__scroll-hint { display: none; margin: 0 0 6px; font-size: 12px; }
+/* 表の中だけを横にスクロールする（ページ全体には横スクロールを出さない） */
+/* position: relative は、マスの中の読み上げ用の文字（.visually-hidden。position: absolute）が表の外へはみ出して、ページに横スクロールを出さないため */
+.shift-board__scroll { position: relative; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.shift-board__scroll:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.35); outline-offset: 2px; }
+
+.shift-table { width: 100%; min-width: 860px; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+.shift-table th,
+.shift-table td { border-bottom: 1px solid var(--color-border); border-left: 1px solid var(--color-border); }
+.shift-table thead th { padding: 8px 6px; background: #fafbfc; color: var(--color-text-muted); font-size: 13px; text-align: center; vertical-align: top; }
+.shift-table .shift-table__name-head,
+.shift-table .shift-table__name {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 8.5em;
+  min-width: 8.5em;
+  border-left: none;
+  background: var(--color-surface);
+  box-shadow: 1px 0 0 var(--color-border);
+  text-align: left;
+}
+.shift-table thead .shift-table__name-head { z-index: 3; background: #fafbfc; }
+.shift-table .shift-table__name { padding: 8px 10px; font-size: 14px; vertical-align: middle; }
+.shift-table tfoot .shift-table__name { background: #fafbfc; }
+.shift-table__user { display: block; font-weight: 700; overflow-wrap: anywhere; }
+.shift-table__employment { display: block; font-size: 11px; font-weight: 400; }
+.shift-table__date { color: var(--color-text); font-size: 15px; font-weight: 700; }
+.shift-table__weekday { margin-left: 1px; }
+.shift-table__holiday {
+  display: block;
+  width: fit-content;
+  margin: 2px auto 0;
+  padding: 0 6px;
+  border: 1px solid #f3cccc;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-sunday);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.shift-table__count { display: block; margin-top: 2px; color: var(--color-accent-hover); font-size: 12px; font-weight: 700; }
+.shift-table__total-head,
+.shift-table__total { width: 5.5em; padding: 8px; text-align: right; white-space: nowrap; }
+.shift-table__total { font-weight: 700; }
+.shift-table tfoot th,
+.shift-table tfoot td { background: #fafbfc; border-bottom: none; color: var(--color-text-muted); font-size: 13px; font-weight: 600; }
+.shift-table__foot-count { padding: 6px; text-align: center; }
+
+/* 列見出し・マスの曜日の色（土曜＝青、日曜・祝日＝赤、今日＝ティールの線） */
+.shift-table thead th.shift-day--saturday { background: var(--color-saturday-soft); }
+.shift-table thead th.shift-day--saturday .shift-table__date,
+.shift-table thead th.shift-day--saturday .shift-table__weekday { color: var(--color-saturday); }
+.shift-table thead th.shift-day--sunday,
+.shift-table thead th.shift-day--holiday { background: var(--color-sunday-soft); }
+.shift-table thead th.shift-day--sunday .shift-table__date,
+.shift-table thead th.shift-day--sunday .shift-table__weekday,
+.shift-table thead th.shift-day--holiday .shift-table__date,
+.shift-table thead th.shift-day--holiday .shift-table__weekday { color: var(--color-sunday); }
+.shift-table thead th.shift-day--today { box-shadow: inset 0 3px 0 var(--color-accent); }
+.shift-cell.shift-day--saturday { background: #fafcff; }
+.shift-cell.shift-day--sunday,
+.shift-cell.shift-day--holiday { background: #fffafa; }
+
+.shift-cell { height: 1px; min-width: 104px; padding: 3px; vertical-align: top; }
+.shift-cell__form { height: 100%; margin: 0; }
+.shift-cell__button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  min-height: 64px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.shift-cell__button:hover { border-color: var(--color-accent); background: var(--color-accent-soft); color: var(--color-text); }
+.shift-cell__button:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.35); outline-offset: 0; }
+.shift-cell__time { font-size: 14px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+.shift-cell__time--removed { color: var(--color-text-muted); font-weight: 500; }
+.shift-cell__meta { color: var(--color-text-muted); font-size: 11px; line-height: 1.4; }
+.shift-cell__state { padding: 0 6px; font-size: 11px; }
+.shift-cell__published { color: #7c3a06; font-size: 11px; line-height: 1.4; white-space: nowrap; }
+.shift-cell__warning { color: var(--color-danger); font-size: 11px; font-weight: 700; }
+.shift-cell__leave { padding: 0 6px; font-size: 11px; }
+.shift-cell__leave-type { color: var(--color-accent-hover); font-size: 11px; font-weight: 600; }
+.shift-cell__add { align-self: center; margin: auto; color: #b6c1c5; font-size: 18px; line-height: 1; }
+.shift-cell__button:hover .shift-cell__add { color: var(--color-accent); }
+/* シフトのあるマス：公開中＝淡いティールに実線、下書き＝点線、変更（未公開）＝黄、削除（未公開）＝赤の点線 */
+.shift-cell--published .shift-cell__button { border-color: #b9ded9; background: #f3faf9; }
+.shift-cell--draft .shift-cell__button { border: 1px dashed var(--color-neutral); background: #fff; }
+.shift-cell--changed .shift-cell__button { border-color: #f1d9a8; background: var(--color-warning-soft); }
+.shift-cell--removing .shift-cell__button { border: 1px dashed #f3c4c4; background: #fff; }
+.shift-cell--leave .shift-cell__button { background: repeating-linear-gradient(-45deg, #f3faf9, #f3faf9 6px, #e6f4f2 6px, #e6f4f2 12px); }
+.shift-cell--conflict .shift-cell__button { border: 2px solid var(--color-danger); }
+.shift-inactive__list { margin: 0; padding-left: 20px; font-size: 14px; }
+.shift-inactive__list .badge { margin-left: 4px; }
+
+/* シフトの入力画面 */
+.shift-form__patterns { display: flex; flex-wrap: wrap; gap: 6px; }
+.shift-form__pattern {
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.shift-form__pattern:hover { border-color: var(--color-accent); background: var(--color-accent-soft); }
+.shift-form__times { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 12px; }
+.shift-form__preview { margin: 0 0 8px; color: var(--color-accent-hover); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.shift-form__preview:empty { display: none; }
+.shift-form__preview--warning { color: var(--color-danger); }
+.shift-form__acknowledge { display: inline-flex; align-items: center; gap: 8px; color: #7c3a06; font-weight: 700; }
+.shift-pattern-form__grid { display: grid; grid-template-columns: 2fr repeat(3, minmax(0, 1fr)); column-gap: 12px; }
+.shift-patterns-table__actions { display: flex; justify-content: flex-end; gap: 6px; }
+.shift-patterns-table__delete { margin: 0; }
+
+/* ===== 画面上部に重ねて出すメッセージ（トースト。シフト表のパターンの割り当てなど） ===== */
+/* ページの中に差し込まないので、下の表の位置がずれない */
+.toast-area {
+  position: fixed;
+  top: calc(var(--header-height) + 8px);
+  right: 0;
+  left: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  padding: 0 12px;
+  pointer-events: none;
+}
+.toast-area[hidden] { display: none; }
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 720px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.16);
+  pointer-events: auto;
+}
+.toast__message { flex: 1; min-width: 0; }
+.toast__close {
+  flex: none;
+  min-width: 28px;
+  min-height: 28px;
+  margin: -4px -6px -4px 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.toast__close:hover { background: rgba(0, 0, 0, 0.06); }
+
+/* ===== 予実比較（F12） ===== */
+.shift-mark { font-variant-numeric: tabular-nums; }
+.shift-revised { font-size: 11px; }
+.shift-check__basis { display: block; margin-top: 2px; color: #7c3a06; font-size: 12px; font-weight: 600; }
+.shift-check__note { font-size: 13px; }
+.notice-box__strong { font-weight: 700; }
+.shift-form__fieldset { min-width: 0; margin: 0; padding: 0; border: none; }
+.shift-form__fieldset:disabled .form__input { background: var(--color-neutral-soft); color: var(--color-text-muted); }
+.shift-form__fieldset:disabled .shift-form__pattern { opacity: 0.5; cursor: not-allowed; }
+
+/* 勤怠履歴：予定（シフト）の欄と、月の比較の行 */
+.history-table__shift { white-space: nowrap; }
+.history-table__shift-time { font-weight: 600; font-variant-numeric: tabular-nums; }
+.history-table__shift .badge { margin-left: 2px; }
+.summary__marks { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; margin: 14px 0 0; font-size: 14px; font-weight: 600; }
+.summary__marks strong { font-variant-numeric: tabular-nums; }
+.summary__marks-alert { color: var(--color-danger); }
+
+/* ホーム：今日と次回のシフト */
+.home-shift { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.home-shift__title { margin: 0; color: var(--color-text-muted); font-size: 14px; font-weight: 600; }
+.home-shift__list { display: flex; flex: 1 1 24em; flex-wrap: wrap; gap: 6px 28px; margin: 0; }
+.home-shift__item { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.home-shift__label { flex: none; color: var(--color-text-muted); font-size: 13px; font-weight: 700; }
+.home-shift__value { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; margin: 0; }
+.home-shift__time { color: var(--color-accent-hover); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.home-shift__date { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.home-shift__sub { font-size: 12px; }
+.home-shift__none { color: var(--color-text-muted); font-size: 16px; font-weight: 600; }
+.home-shift__ongoing { flex-basis: 100%; margin: 0; color: var(--color-success); font-size: 13px; font-weight: 600; }
+.home-shift__link { margin-left: auto; }
+
+/* 従業員のシフトのカレンダー（月曜はじまり） */
+.summary__value--text { font-size: 20px; }
+.shift-calendar__revised-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 0; color: #7c3a06; font-size: 14px; font-weight: 600; }
+.shift-calendar { border-top: 1px solid var(--color-border); }
+.shift-calendar__head,
+.shift-calendar__week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.shift-calendar__head { background: #fafbfc; border-bottom: 1px solid var(--color-border); }
+.shift-calendar__weekday { padding: 6px; color: var(--color-text-muted); font-size: 13px; font-weight: 700; text-align: center; }
+.shift-calendar__weekday--saturday { color: var(--color-saturday); }
+.shift-calendar__weekday--sunday { color: var(--color-sunday); }
+.shift-calendar__week + .shift-calendar__week { border-top: 1px solid var(--color-border); }
+.shift-calendar__day {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  min-height: 104px;
+  padding: 6px 8px 8px;
+  border-left: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
+}
+.shift-calendar__day:first-child { border-left: none; }
+.shift-calendar__day > p { margin: 0; }
+.shift-calendar__day--saturday { background: var(--color-saturday-soft); }
+.shift-calendar__day--sunday,
+.shift-calendar__day--holiday { background: var(--color-sunday-soft); }
+.shift-calendar__day--saturday .shift-calendar__number { color: var(--color-saturday); }
+.shift-calendar__day--sunday .shift-calendar__number,
+.shift-calendar__day--holiday .shift-calendar__number { color: var(--color-sunday); }
+.shift-calendar__day--today { box-shadow: inset 0 3px 0 var(--color-accent); }
+.shift-calendar__day--outside { background: #fbfbfc; }
+.shift-calendar__day--outside > * { opacity: 0.45; }
+.shift-calendar__date { display: flex; align-items: center; gap: 4px; }
+.shift-calendar__number { font-size: 15px; font-weight: 700; }
+.shift-calendar__weekday-inline { display: none; color: var(--color-text-muted); font-size: 12px; }
+.shift-calendar__today { padding: 0 6px; font-size: 11px; }
+.shift-calendar__holiday {
+  max-width: 100%;
+  padding: 0 6px;
+  overflow: hidden;
+  border: 1px solid #f3cccc;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-sunday);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.6;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shift-calendar__time { color: var(--color-accent-hover); font-size: 14px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+.shift-calendar__meta { color: var(--color-text-muted); font-size: 11px; line-height: 1.4; }
+.shift-calendar__leave { max-width: 100%; overflow: hidden; padding: 0 6px; font-size: 11px; text-overflow: ellipsis; }
+.shift-calendar__note { color: #7c3a06; font-size: 11px; font-weight: 600; }
+.shift-calendar__marks { display: flex; flex-wrap: wrap; gap: 3px; }
+.shift-calendar__marks .badge { padding: 0 6px; font-size: 11px; }
+.shift-calendar__off { color: #a3acb2; font-size: 11px; }
+
+/* 予実の確認（管理者） */
+.table__number { font-variant-numeric: tabular-nums; text-align: right; }
+.shift-report__count { font-weight: 700; }
+.shift-report__count--alert { color: var(--color-danger); }
+.shift-report-days__row--saturday .table__primary { color: var(--color-saturday); }
+.shift-report-days__row--sunday .table__primary,
+.shift-report-days__row--holiday .table__primary { color: var(--color-sunday); }
+
+/* 開発環境で時計を変更しているときの注意書き */
+.dev-clock-banner {
+  margin: 0 0 12px;
+  padding: 6px 12px;
+  border: 1px dashed var(--color-warning);
+  border-radius: var(--radius);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ===== 管理者のダッシュボード（F13） ===== */
+.status--small { padding: 2px 10px; font-size: 13px; white-space: nowrap; }
+.status--leave { background: var(--color-accent-soft); color: var(--color-accent); }
+.status--danger { background: var(--color-danger); color: #fff; }
+
+.dashboard__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dashboard__total { margin-left: 8px; font-size: 13px; font-weight: 600; }
+
+.dashboard-counts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dashboard-counts__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-left: 5px solid var(--color-neutral);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+.dashboard-counts__item--working { border-left-color: var(--color-success); }
+.dashboard-counts__item--break { border-left-color: #eab308; }
+.dashboard-counts__item--leave { border-left-color: var(--color-accent); }
+.dashboard-counts__label { color: var(--color-text-muted); font-size: 13px; font-weight: 700; }
+.dashboard-counts__value { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.dashboard-counts__sub { color: var(--color-text-muted); font-size: 12px; font-weight: 700; }
+.dashboard-counts__sub--alert { color: var(--color-danger); }
+
+.dashboard-todo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.dashboard-todo__item { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 16px 18px; }
+.dashboard-todo__item--alert { border-color: #f3c4c4; box-shadow: inset 4px 0 0 var(--color-danger); }
+.dashboard-todo__label { margin: 0; color: var(--color-text-muted); font-size: 13px; font-weight: 700; }
+.dashboard-todo__value { margin: 0; font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.dashboard-todo__item--alert .dashboard-todo__value { color: var(--color-danger); }
+.dashboard-todo__note { flex: 1; margin: 0 0 6px; font-size: 12px; }
+
+.dashboard-table__time { font-weight: 700; font-variant-numeric: tabular-nums; }
+.dashboard-table__day-tag { display: inline-block; padding: 0 6px; border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-text-muted); font-size: 11px; font-weight: 700; }
+.dashboard-table__row--late td { background: var(--color-danger-soft); }
+.dashboard-table__row--late .table__primary { color: var(--color-danger); }
+.dashboard-table__late-note { color: var(--color-danger); font-size: 13px; font-weight: 700; }
+.dashboard-table__previous-shift { display: block; color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+.dashboard-table__note { font-size: 13px; }
+.dashboard-table__note > * + * { margin-left: 4px; }
+.dashboard-overtime__over { color: var(--color-danger); font-weight: 700; }
+
+/* 月次集計と締め（F14） */
+.badge--closed { background: #1f2937; color: #fff; }
+.notice-box--closed { border-color: #94a3b8; background: #f1f5f9; }
+.closing-card .notice-box { margin-bottom: 12px; }
+.closing-card__form { display: inline-block; margin-top: 8px; }
+.closing-card__pending { margin: 6px 0 0; padding-left: 1.2em; font-size: 13px; }
+.monthly-summary-table__sub { display: block; color: var(--color-text-muted); font-size: 11px; white-space: nowrap; }
+.monthly-list-table__row--current td { background: var(--color-accent-soft); }
+.attendance-edits-table td { vertical-align: top; font-size: 13px; }
+.attendance-edits-table__reason { min-width: 10em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.history-table__closed { font-size: 12px; white-space: nowrap; }
+
+/* CSV の書き出し（F15） */
+.csv-export__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.csv-export__meta { margin-left: 2px; font-size: 12px; font-weight: 400; opacity: 0.85; }
+.csv-export__note { margin: 6px 0 0; font-size: 13px; }
+.csv-export__note--open { padding: 6px 10px; border-left: 3px solid var(--color-warning); background: var(--color-warning-soft); }
+@media (max-width: 480px) {
+  .csv-export__button { flex: 1 1 100%; }
+}
+
+@media (max-width: 900px) {
+  .dashboard-counts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dashboard-todo { grid-template-columns: 1fr; }
+}
+
+/* ===== スマートフォン幅 ===== */
+@media (max-width: 600px) {
+  /* ヘッダーは2段：1段目にアプリ名とユーザー、2段目にナビ */
+  .header__inner { flex-wrap: wrap; gap: 0 8px; height: auto; padding: 0 12px; }
+  .header__brand,
+  .header__user { height: 48px; }
+  .header__user { margin-left: auto; }
+  .header__nav {
+    flex-basis: 100%;
+    order: 3;
+    padding: 4px 0 6px;
+    border-top: 1px solid var(--color-border);
+  }
+  .nav__link { min-height: 32px; padding: 4px 10px; font-size: 14px; }
+  /* ナビの項目が増えて1行に収まらなくなったら、横にはみ出さずに折り返す */
+  .nav { flex-wrap: wrap; row-gap: 2px; }
+  /* 「管理」のメニューは、押した位置ではなくヘッダー（position: sticky）を基準に、画面の左右いっぱいに出す。
+     ナビの項目が増えて「管理」が右に寄っても、画面の右にはみ出さない */
+  .nav__menu { position: static; }
+  .nav__menu-list { top: 100%; right: 12px; left: 12px; min-width: 0; }
+
+  .form__grid { grid-template-columns: 1fr; }
+  .correction-form__times { grid-template-columns: 1fr; }
+  .correction-current__list { grid-template-columns: 1fr; gap: 4px; }
+  .correction-current__list > div { display: flex; gap: 12px; }
+  .correction-current__list dt { flex: 0 0 3em; }
+  .break-row__fields { flex-basis: 100%; }
+  .break-row__separator { display: none; }
+  .time-input__caption { display: inline; }
+  .break-row__fields .time-input { flex-basis: 100%; }
+  .break-row__remove { margin-left: auto; }
+  .break-row__fields { order: 2; }
+  .request-meta { grid-template-columns: 1fr; }
+  .correction-comparison th,
+  .correction-comparison td { padding: 10px; }
+  .correction-comparison tbody th { white-space: normal; }
+
+  /* 表は縦積みのカード表示に切り替える */
+  .table--responsive thead { display: none; }
+  .table--responsive,
+  .table--responsive tbody,
+  .table--responsive tr,
+  .table--responsive td { display: block; width: 100%; }
+  .table--responsive tr { position: relative; padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
+  .table--responsive tbody tr:last-child { border-bottom: none; }
+  .table--responsive td { display: flex; gap: 12px; padding: 3px 0; border: none; }
+  /* ラベル付きの欄：ラベルを左に置き、中身は右の幅で普通の文章として流す（flex にしない）。
+     flex にすると、欄の中の文字・バッジ・リンクがそれぞれ横に並ぶ項目になり、バッジが縦に伸びて楕円になったり、
+     文字が細く折り返したりする（スプリント10・11の評価の指摘）。中身を1つの要素にまとめなくても崩れない */
+  .table--responsive td[data-label]:not(.table__primary) {
+    display: block;
+    position: relative;
+    min-height: 26px;
+    padding-left: calc(var(--responsive-label-width) + 12px);
+    overflow-wrap: anywhere;
+  }
+  .table--responsive td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 var(--responsive-label-width);
+    color: var(--color-text-muted);
+    font-size: 13px;
+  }
+  .table--responsive td[data-label]:not(.table__primary)::before {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    width: var(--responsive-label-width);
+    line-height: 1.5;
+  }
+  .table--responsive td .badge { white-space: nowrap; }
+  .table--responsive .table__primary { padding-right: 64px; }
+  .table--responsive .table__primary::before { display: none; }
+  .table--responsive .table__actions { position: absolute; top: 10px; right: 16px; width: auto; padding: 0; }
+  .table--responsive .table__wrap { min-width: 0; }
+  /* 承認の一覧は右上のボタン（「確認する」）が広いので、氏名の右側を空けておく */
+  .approvals-table.table--responsive .table__primary { padding-right: 96px; }
+
+  /* 勤怠履歴：1日を1枚のカードにする（勤務の無い日は1行に縮める） */
+  .history-table thead { display: none; }
+  .history-table,
+  .history-table tbody { display: block; width: 100%; }
+  .history-table tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .history-table tbody tr:last-child { border-bottom: none; }
+  .history-table th,
+  .history-table td { display: block; padding: 0; border: none; white-space: normal; }
+  .history-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .history-table .history-table__date { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; grid-column: 1 / 3; grid-row: 1; width: auto; }
+  /* 「修正申請」「申請中」は日付と同じ段の右端に置く（勤務の無い日も出す） */
+  .history-table .history-table__request { grid-column: 3; grid-row: 1; align-self: center; justify-self: end; width: auto; }
+  .history-table .history-table__request:empty { display: none; }
+  .history-row--empty td.history-table__request { display: block; }
+  .history-table__date .badge { margin-left: 0; }
+  .history-table__holiday { margin-left: 0; }
+  .history-table .history-table__note { grid-column: 1 / -1; }
+  .history-table .history-table__note:empty { display: none; }
+  .history-row--empty { padding-block: 6px; }
+  /* 今日・退勤漏れの左端の線は、カード（行）全体の左端に付ける */
+  .history-row--today > :first-child,
+  .history-row--missing > :first-child { box-shadow: none; }
+  .history-row--today { box-shadow: inset 4px 0 0 var(--color-accent); }
+  .history-row--missing { box-shadow: inset 4px 0 0 var(--color-danger); }
+  .history-row--empty td { display: none; }
+  /* 勤務の無い日でも、休暇の表示（備考欄）は出す */
+  .history-row--has-leave td.history-table__note { display: block; }
+  .history-row--has-leave { padding-block: 10px; }
+  .summary__leaves-link { margin-left: 0; }
+  .date-range__field { max-width: none; }
+  .history-row--empty .history-table__empty-label { display: inline; margin-left: auto; color: var(--color-text-muted); font-size: 13px; font-weight: 400; }
+  /* 祝日の行も「勤務なし」を出す。祝日名のチップと並ぶので、修正申請の欄が無い日は日付の欄を行の幅いっぱいに広げる */
+  .history-row--empty:has(.history-table__request:empty) .history-table__date { grid-column: 1 / -1; }
+  .history-row--holiday.history-row--empty .history-table__empty-label { font-size: 12px; }
+
+  /* 付与の一覧・履歴（F10）：td の中身を1つにまとめた要素が、ラベルの右の幅をすべて使う */
+  .grants-table td[data-column="state"] > .grants-table__state,
+  .paid-leave-history td[data-column="detail"] > .paid-leave-history__detail-body { flex: 1 1 auto; }
+
+  /* シフト作成：表は中だけを横スクロール（左端の従業員名は固定）。ツールバーは縦に積む */
+  .shift-toolbar,
+  .shift-brush { padding: 14px; }
+  .shift-toolbar__range { flex-basis: 100%; order: -1; margin: 0; font-size: 16px; }
+  .shift-week-jump { flex-basis: 100%; }
+  .shift-week-jump__input { flex: 1; min-width: 0; }
+  .shift-toolbar__actions { width: 100%; }
+  .shift-toolbar__actions > * { flex: 1 1 auto; }
+  .shift-toolbar__actions .button { width: 100%; }
+  .shift-board__scroll-hint { display: block; }
+  .shift-table { min-width: 720px; }
+  .shift-table .shift-table__name-head,
+  .shift-table .shift-table__name { width: 6.5em; min-width: 6.5em; padding: 6px; font-size: 13px; }
+  .shift-cell { min-width: 88px; }
+  .shift-cell__button { min-height: 56px; padding: 4px 6px; }
+  .shift-form__times { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shift-form__times .form__field:last-child { grid-column: 1 / -1; }
+  .shift-pattern-form__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shift-pattern-form__grid .form__field:first-child { grid-column: 1 / -1; }
+  .shift-patterns-table__actions { justify-content: flex-start; }
+
+  /* 画面上部のメッセージ（トースト）：ヘッダーが2段になるので、画面のいちばん上に重ねる */
+  .toast-area { top: 8px; padding: 0 8px; }
+
+  /* 勤怠履歴：予定（シフト）は日付の下の段に、行の幅いっぱいで出す。勤務の無い日も、シフトがあれば出す */
+  .history-table .history-table__shift { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; grid-column: 1 / -1; }
+  .history-table .history-table__shift:empty { display: none; }
+  .history-row--has-shift td.history-table__shift { display: flex; }
+  .history-row--marked td.history-table__note { display: block; }
+  .history-row--has-shift { padding-block: 10px; }
+
+  /* ホーム：今日と次回のシフトは縦に並べる */
+  .home-shift__list { flex-direction: column; flex-basis: 100%; }
+  .summary__item--wide { grid-column: 1 / -1; }
+  .summary__value--text { font-size: 18px; }
+  .home-shift__time { font-size: 20px; }
+  .home-shift__link { margin-left: 0; }
+
+  /* シフトのカレンダー：7列は狭いので、1日1行のリストにする（前後の月の日は出さない） */
+  .shift-calendar__head { display: none; }
+  .shift-calendar__week { display: block; }
+  .shift-calendar__week + .shift-calendar__week { border-top: none; }
+  .shift-calendar__day {
+    display: grid;
+    grid-template-columns: 5.5em minmax(0, 1fr);
+    align-items: baseline;
+    gap: 2px 10px;
+    min-height: 0;
+    padding: 8px 12px;
+    border-left: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .shift-calendar__day > :not(.shift-calendar__date) { grid-column: 2; justify-self: start; }
+  .shift-calendar__date { flex-wrap: wrap; grid-column: 1; grid-row: 1 / span 3; align-self: start; }
+  .shift-calendar__weekday-inline { display: inline; }
+  .shift-calendar__day--outside { display: none; }
+  .shift-calendar__day--today { box-shadow: inset 4px 0 0 var(--color-accent); }
+  .shift-calendar__day--empty { padding-block: 5px; }
+  .shift-calendar__time { font-size: 16px; }
+
+  .header__title { font-size: 15px; }
+  .header__user-name { max-width: 7em; font-size: 13px; }
+  .header__user .badge { display: none; }
+  .main { padding: 12px; }
+  .card { padding: 18px; }
+  .card--flush { padding: 0; }
+  .app--guest .main { padding-top: 24px; }
+
+  .punch__time { font-size: 44px; }
+  .punch-button { min-height: 64px; font-size: 20px; }
+  .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .summary__item { padding: 10px 8px; }
+  .summary__value { font-size: 22px; }
+
+  .dashboard-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .dashboard-counts__item { padding: 10px 12px; }
+  .dashboard-counts__value { font-size: 24px; }
+  .dashboard-todo__value { font-size: 24px; }
+  .dashboard-table__row--late td { background: transparent; }
+  .dashboard-table tr.dashboard-table__row--late { background: var(--color-danger-soft); box-shadow: inset 4px 0 0 var(--color-danger); }
+  .dashboard-table__note > * + * { margin-left: 0; }
+  /* 備考が無い人のカードには、空の「備考」の段を出さない */
+  /* .table--responsive td[data-label]:not(.table__primary)（display: block）より詳細度を上げる（スプリント13の評価の指摘） */
+  .table--responsive.dashboard-table td.dashboard-table__note--empty[data-label] { display: none; }
+  /* 退勤漏れの一覧の状況（「本人が退勤できます（〜11/13(金) 23:58）」）は長いので、カードの幅で折り返す */
+  .table--responsive.missing-clock-outs-table td .badge { white-space: normal; text-align: left; }
+}
+
+/* ===== アプリ内通知（F16） ===== */
+/* ヘッダーのベル */
+/* 右に少し空けて、ベルの右上に重ねたバッジが右どなりのユーザー名にかからないようにする */
+.notifications-menu { position: relative; margin-right: 6px; }
+.notifications-menu__toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.notifications-menu__toggle::-webkit-details-marker { display: none; }
+.notifications-menu__toggle:hover { background: var(--color-neutral-soft); color: var(--color-text); }
+.notifications-menu__toggle:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.35); outline-offset: 1px; }
+.notifications-menu[open] > .notifications-menu__toggle,
+.notifications-menu__toggle.is-active { background: var(--color-accent-soft); color: var(--color-accent); }
+/* バッジはベルの右上に重ねる。右端をそろえるので、件数の桁が増えると左へ伸びる（右どなりのユーザー名にかからない） */
+.notifications-menu__badge {
+  position: absolute;
+  top: 1px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border: 2px solid var(--color-surface);
+  border-radius: 999px;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-sizing: content-box;
+}
+.notifications-menu__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  max-height: min(560px, calc(100vh - 80px));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+.notifications-menu__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.notifications-menu__title { margin: 0; font-weight: 700; }
+.notifications-menu__count { margin-left: 8px; color: var(--color-danger); font-size: 13px; font-weight: 600; }
+.notifications-menu__mark-all { margin: 0; }
+.notifications-menu__panel .notification-list { overflow-y: auto; }
+.notifications-menu__empty { margin: 0; padding: 20px 16px; font-size: 14px; text-align: center; }
+.notifications-menu__all {
+  display: block;
+  padding: 10px 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+.notifications-menu__all:hover { background: var(--color-neutral-soft); }
+
+/* 通知の一覧（ベルの一覧と、通知の画面で共通） */
+.notification-list { margin: 0; padding: 0; list-style: none; }
+.notification-list > li + li { border-top: 1px solid var(--color-border); }
+.notification-item__form { margin: 0; }
+.notification-item {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.notification-item:hover { background: var(--color-neutral-soft); }
+.notification-item:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.35); outline-offset: -3px; }
+.notification-item.is-unread { background: #f3faf9; }
+.notification-item.is-unread:hover { background: var(--color-accent-soft); }
+.notification-item__marker { flex: 0 0 8px; width: 8px; height: 8px; margin-top: 8px; border-radius: 999px; }
+.notification-item.is-unread .notification-item__marker { background: var(--color-accent); }
+.notification-item__content { display: block; flex: 1; min-width: 0; }
+.notification-item__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; }
+.notification-item__unread { color: var(--color-accent); font-weight: 700; }
+.notification-item__time { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.notification-item__relative { margin-left: 2px; }
+.notification-item__title { display: block; margin-top: 2px; font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+.notification-item.is-unread .notification-item__title { font-weight: 700; }
+.notification-item__body { display: block; margin-top: 2px; color: var(--color-text-muted); font-size: 13px; overflow-wrap: anywhere; }
+.notification-item--compact { padding: 10px 12px; }
+.notification-item--compact .notification-item__title { font-size: 14px; }
+.notification-item--compact .notification-item__body {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.notification-kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.notification-kind--accent { background: var(--color-accent-soft); color: var(--color-accent); }
+.notification-kind--success { background: var(--color-success-soft); color: var(--color-success); }
+.notification-kind--warning { background: var(--color-warning-soft); color: var(--color-warning); }
+.notification-kind--danger { background: var(--color-danger-soft); color: var(--color-danger); }
+
+/* ページ分け */
+.pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; }
+.pagination__status { color: var(--color-text-muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 600px) {
+  .header__user { gap: 4px; }
+  .notifications-menu__toggle { width: 36px; height: 36px; }
+  /* ベルの一覧は、ヘッダー（position: sticky）を基準に、画面の左右いっぱいに出す */
+  .notifications-menu { position: static; }
+  .notifications-menu__panel { top: 100%; right: 12px; left: 12px; width: auto; max-width: none; max-height: calc(100vh - 120px); }
+  .notification-item { padding: 12px; }
+}
+@media (max-width: 380px) {
+  .header__user-name { max-width: 5.5em; }
+}

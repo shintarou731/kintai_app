@@ -1,0 +1,63 @@
+<%# 有給休暇の残日数のカード。「休暇」画面（本人）と、管理者の付与画面で使う。for_admin: true なら管理者向けの文言にする %>
+<% for_admin = local_assigns.fetch(:for_admin, false) %>
+<% fiscal = account.fiscal_year_range %>
+<section class="card section paid-leave-summary" aria-labelledby="paid-leave-summary-title" data-testid="paid-leave-summary">
+  <h2 id="paid-leave-summary-title" class="card__title">有給休暇の残日数</h2>
+
+  <div class="paid-leave-summary__main">
+    <p class="paid-leave-summary__balance" data-testid="paid-leave-balance"><%= paid_leave_balance_label(account.balance) %></p>
+    <dl class="paid-leave-summary__facts">
+      <div>
+        <dt>承認待ち</dt>
+        <dd data-testid="paid-leave-pending"><%= format_leave_days(account.pending_days) %></dd>
+      </div>
+      <div>
+        <dt>申請できる残り</dt>
+        <dd data-testid="paid-leave-requestable"><%= format_leave_days(account.requestable) %></dd>
+      </div>
+      <div>
+        <dt>当年度の取得</dt>
+        <dd data-testid="paid-leave-fiscal-taken">
+          <%= format_leave_days(account.fiscal_year_taken_days) %>
+          <% if account.fiscal_year_scheduled_days.positive? %>
+            <span class="muted">（うち予定 <%= format_leave_days(account.fiscal_year_scheduled_days) %>）</span>
+          <% end %>
+        </dd>
+      </div>
+    </dl>
+  </div>
+
+  <% if (expiry = account.next_expiry) %>
+    <p class="paid-leave-summary__note" data-testid="paid-leave-next-expiry">
+      <%= l(expiry.first, format: :long) %> までに使わないと、<strong><%= format_leave_days(expiry.last) %></strong> が失効します（古い付与から順に使います）。
+    </p>
+  <% end %>
+
+  <% if account.shortage? %>
+    <div class="notice-box notice-box--warning paid-leave-summary__alert" role="note" data-testid="paid-leave-shortage">
+      <p class="notice-box__title">付与された日数を超えて取得した有給休暇が <%= format_leave_days(account.shortage) %> あります</p>
+      <p class="notice-box__body">
+        <% if for_admin %>
+          付与が登録されていない時期の有給休暇や、付与日より前・有効期限の後の有給休暇です。残日数は0日未満にせず、この分は別に表示しています。
+          実際の付与日で付与を登録すると、古い付与から順に充てて計算し直します。
+        <% else %>
+          付与が登録されていない時期の有給休暇などです。残日数は0日未満にせず、この分は別に表示しています。管理者に付与の登録を確認してください。
+        <% end %>
+      </p>
+    </div>
+  <% elsif !account.any_grants? %>
+    <p class="paid-leave-summary__note muted" data-testid="paid-leave-no-grants">
+      <% if account.removed_grants.any? %>
+        <%= for_admin ? "有効な付与はありません（削除した付与は残日数に数えません）。必要なら、下のフォームから付与し直してください。" : "有効な付与はありません（削除された付与は残日数に数えません）。" %>
+      <% else %>
+        <%= for_admin ? "まだ有給休暇を付与していません。下のフォームから付与を登録してください。" : "有給休暇はまだ付与されていません。付与されると、ここに残日数が表示されます。" %>
+      <% end %>
+    </p>
+  <% end %>
+
+  <p class="summary__note muted">
+    有給休暇は、承認されると残日数から引かれ、取り消すと戻ります（休日＝土日・祝日は数えません。半休は0.5日）。
+    申請できるのは、承認待ちの有給も差し引いた「申請できる残り」までです。有効期限の日までの休暇に使え、期限を過ぎた分は失効します。
+    当年度は<%= l(fiscal.begin) %>〜<%= l(fiscal.end) %>（4月1日〜翌年3月31日）で、取得予定（承認済みの今後の有給）を含めて数えます。
+  </p>
+</section>

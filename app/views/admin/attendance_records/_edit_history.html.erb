@@ -1,0 +1,35 @@
+<%# 管理者による勤怠の直接修正の履歴（誰が・いつ・何を（修正前→修正後）・なぜ）。show_date なら対象日の列も出す %>
+<% if edits.any? %>
+  <div class="card card--flush">
+    <table class="table table--responsive attendance-edits-table" data-testid="attendance-edits">
+      <thead>
+        <tr>
+          <% if show_date %><th scope="col">対象日</th><% end %>
+          <th scope="col">日時・管理者</th>
+          <th scope="col">操作</th>
+          <th scope="col">修正前</th>
+          <th scope="col">修正後</th>
+          <th scope="col">理由</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% edits.each do |edit| %>
+          <tr data-testid="attendance-edit-row" data-operation="<%= edit.operation %>" data-date="<%= edit.work_date.iso8601 %>">
+            <% if show_date %>
+              <td data-label="対象日" class="table__primary nowrap"><%= l(edit.work_date, format: :short_with_day) %></td>
+            <% end %>
+            <td data-label="日時" class="<%= "table__primary" unless show_date %>">
+              <span class="nowrap"><%= l(edit.created_at, format: :short) %></span> <span class="nowrap"><%= edit.editor.name %></span>
+            </td>
+            <td data-label="操作"><span class="badge <%= edit.operation == "deleted" ? "badge--danger-soft" : "badge--muted" %>"><%= edit.operation_label %></span></td>
+            <td data-label="修正前" data-column="before"><%= attendance_edit_record_label(edit.before_attendance, edit.work_date) %></td>
+            <td data-label="修正後" data-column="after"><%= attendance_edit_record_label(edit.after_attendance, edit.work_date) %></td>
+            <td data-label="理由" data-column="reason" class="attendance-edits-table__reason"><%= edit.reason %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% else %>
+  <div class="card empty-state" data-testid="attendance-edits-empty"><p>管理者が直接修正した記録はありません。</p></div>
+<% end %>

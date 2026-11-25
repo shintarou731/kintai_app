@@ -1,0 +1,85 @@
+<% content_for :title, "申請" %>
+
+<div class="page">
+  <header class="page__header">
+    <p class="page__eyebrow">申請</p>
+    <h1 class="page__title">申請</h1>
+    <p class="page__lead muted">あなたが出した申請の一覧です。承認待ちの申請は、詳細から取り下げられます。承認・却下の結果と管理者のコメントも、ここで確認できます。</p>
+  </header>
+
+  <section class="card section request-start" aria-labelledby="new-correction-title">
+    <h2 id="new-correction-title" class="card__title card__title--small">打刻修正を申請する</h2>
+    <%= form_with url: new_attendance_correction_request_path, method: :get, class: "request-start__form",
+                  data: { testid: "new-correction-form" } do |f| %>
+      <div class="request-start__field">
+        <%= f.label :date, "対象日", class: "form__label" %>
+        <%= f.date_field :date, value: Date.current.iso8601, max: Date.current.iso8601, required: true,
+                                class: "form__input request-start__input" %>
+      </div>
+      <%= f.submit "入力へ進む", class: "button button--primary", name: nil %>
+    <% end %>
+    <p class="form__hint">打刻を忘れた・押し間違えた日の正しい時刻を申請できます（今日までの日付）。勤怠履歴の各日の「修正申請」からも開けます。</p>
+  </section>
+  <p class="request-start__leave muted section" data-testid="leave-request-link">
+    休暇の申請・取消申請は <%= link_to "「休暇」画面", leave_requests_path %> から行えます。
+  </p>
+
+  <nav class="tabs section" aria-label="状態で絞り込み">
+    <% { "all" => "すべて", "pending" => "承認待ち", "processed" => "処理済み" }.each do |status, label| %>
+      <%= link_to approval_requests_path(status: (status == "all" ? nil : status)),
+                  class: [ "tabs__item", ("is-active" if @filter == status) ],
+                  "aria-current": (@filter == status ? "page" : nil), data: { testid: "filter-#{status}" } do %>
+        <%= label %> <span class="tabs__count"><%= @counts[status] %></span>
+      <% end %>
+    <% end %>
+  </nav>
+
+  <% if @requests.any? %>
+    <div class="card card--flush">
+      <table class="table table--responsive requests-table" data-testid="requests-table">
+        <thead>
+          <tr>
+            <th scope="col">対象日</th>
+            <th scope="col">種類</th>
+            <th scope="col">内容</th>
+            <th scope="col">申請日</th>
+            <th scope="col">状態</th>
+            <th scope="col"><span class="visually-hidden">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @requests.each do |approval_request| %>
+            <tr id="<%= dom_id(approval_request) %>" data-testid="request-row"
+                class="<%= "is-highlighted" if approval_request.id == @highlight_id %>">
+              <td data-label="対象日" class="table__primary" data-column="target-date"><%= approval_request_target_label(approval_request) %></td>
+              <td data-label="種類" data-column="kind"><%= approval_request.kind_label %></td>
+              <td data-label="内容" data-column="summary" class="table__wrap requests-table__summary"><%= approval_request_summary(approval_request) %></td>
+              <td data-label="申請日" data-column="submitted-at"><%= l(approval_request.created_at, format: :short) %></td>
+              <td data-label="状態" data-column="status" class="requests-table__status">
+                <div>
+                  <%= approval_request_status_badge(approval_request) %>
+                  <% if approval_request.processed? %>
+                    <span class="requests-table__review" data-testid="request-review">
+                      <%= approval_request_reviewer_label(approval_request) %>
+                      <% if approval_request.review_comment.present? %>
+                        <span class="requests-table__comment">コメント：<%= truncate(approval_request.review_comment.squish, length: 40) %></span>
+                      <% end %>
+                    </span>
+                  <% end %>
+                </div>
+              </td>
+              <td class="table__actions">
+                <%= link_to "詳細", approval_request_path(approval_request), class: "button button--ghost button--small",
+                                                                        "aria-label": "#{approval_request.target_label} の#{approval_request.kind_label}申請の詳細" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card empty-state" data-testid="requests-empty">
+      <p><%= { "pending" => "承認待ちの申請はありません。", "processed" => "承認・却下された申請はまだありません。" }.fetch(@filter, "まだ申請はありません。") %></p>
+    </div>
+  <% end %>
+</div>

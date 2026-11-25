@@ -1,0 +1,68 @@
+<header class="header">
+  <div class="header__inner">
+    <%= link_to root_path, class: "header__brand" do %>
+      <span class="header__logo" aria-hidden="true">K</span>
+      <span class="header__title">キンタイ帳</span>
+    <% end %>
+
+    <nav class="header__nav nav" aria-label="メインナビゲーション">
+      <%= nav_link_to "ホーム", root_path, class: "nav__link" %>
+      <%= nav_link_to "勤怠履歴", attendances_path, active: controller_path == "attendances", class: "nav__link" %>
+      <%= nav_link_to "シフト", shifts_path, active: controller_path == "shifts", class: "nav__link", data: { testid: "nav-my-shifts" } %>
+      <%= nav_link_to "申請", approval_requests_path,
+                      active: controller_path.start_with?("approval_requests") || controller_path == "attendance_correction_requests",
+                      class: "nav__link" %>
+      <%= nav_link_to "休暇", leave_requests_path, active: controller_path.start_with?("leave_requests"), class: "nav__link",
+                                                 data: { testid: "nav-leaves" } %>
+
+      <% if current_user.admin? %>
+        <% admin_active = controller_path.start_with?("admin/") %>
+        <% approval_count = pending_approval_count %>
+        <details class="nav__menu" data-controller="dropdown" data-testid="admin-menu">
+          <summary class="nav__link nav__menu-toggle <%= "is-active" if admin_active %>"
+                   aria-label="<%= approval_count.positive? ? "管理（承認待ち #{approval_count}件）" : "管理" %>">
+            管理
+            <% if approval_count.positive? %>
+              <span class="nav__badge" aria-hidden="true" data-testid="admin-menu-badge"><%= approval_count %></span>
+            <% end %>
+          </summary>
+          <ul class="nav__menu-list">
+            <li><%= nav_link_to "ダッシュボード", admin_dashboard_path,
+                                active: %w[admin/dashboards admin/missing_clock_outs].include?(controller_path),
+                                class: "nav__menu-item", data: { testid: "nav-dashboard" } %></li>
+            <li>
+              <%= link_to admin_approval_requests_path,
+                          class: [ "nav__menu-item", "nav__menu-item--with-badge", ("is-active" if controller_path.start_with?("admin/approval_requests")) ],
+                          "aria-current": (controller_path.start_with?("admin/approval_requests") ? "page" : nil),
+                          data: { testid: "nav-approvals" } do %>
+                承認
+                <% if approval_count.positive? %>
+                  <span class="nav__badge" data-testid="approval-badge" title="承認待ちの申請"><%= approval_count %><span class="visually-hidden">件の承認待ち</span></span>
+                <% end %>
+              <% end %>
+            </li>
+            <li><%= nav_link_to "従業員", admin_employees_path, active: controller_path.start_with?("admin/employees"), class: "nav__menu-item" %></li>
+            <li><%= nav_link_to "シフト作成", admin_shifts_path,
+                                active: controller_path.start_with?("admin/shift") && controller_path != "admin/shift_reports",
+                                class: "nav__menu-item", data: { testid: "nav-shifts" } %></li>
+            <li><%= nav_link_to "予実の確認", admin_shift_reports_path, active: controller_path == "admin/shift_reports", class: "nav__menu-item",
+                                                       data: { testid: "nav-shift-reports" } %></li>
+            <li><%= nav_link_to "月次集計", admin_monthly_summaries_path,
+                                active: %w[admin/monthly_summaries admin/attendance_records].include?(controller_path),
+                                class: "nav__menu-item", data: { testid: "nav-monthly" } %></li>
+            <li><%= nav_link_to "設定", admin_work_rule_setting_path, active: controller_path == "admin/work_rule_settings", class: "nav__menu-item" %></li>
+          </ul>
+        </details>
+      <% end %>
+    </nav>
+
+    <div class="header__user">
+      <%= render "shared/notifications_menu" %>
+      <%= link_to current_user.name, edit_password_path, class: "header__user-name", title: "パスワード変更", data: { testid: "current-user-name" } %>
+      <% if current_user.admin? %>
+        <span class="badge badge--accent"><%= current_user.role_label %></span>
+      <% end %>
+      <%= button_to "ログアウト", logout_path, method: :delete, class: "button button--ghost button--small", form_class: "header__logout" %>
+    </div>
+  </div>
+</header>

@@ -1,0 +1,97 @@
+<% calendar = @calendar %>
+<% summary = @summary %>
+<% today = calendar.today %>
+<% content_for :title, "シフト（#{calendar.label}）" %>
+
+<div class="page">
+  <header class="page__header page__header--with-actions history-header">
+    <div>
+      <p class="page__eyebrow">シフト</p>
+      <h1 class="page__title" data-testid="calendar-month">
+        <%= calendar.label %>
+        <% if calendar.current_month? %><span class="badge badge--accent">今月</span><% end %>
+      </h1>
+      <p class="history-header__range muted">公開されたシフト（勤務予定）だけを表示します。</p>
+    </div>
+
+    <nav class="month-nav" aria-label="表示する月の切り替え">
+      <% if ShiftCalendar.navigable?(calendar.previous_month) %>
+        <%= link_to "← 前月", shifts_path(month: calendar.previous_month.strftime("%Y-%m")),
+                    class: "button button--ghost button--small", rel: "prev", data: { testid: "previous-month" } %>
+      <% end %>
+      <% unless calendar.current_month? %>
+        <%= link_to "今月", shifts_path, class: "button button--ghost button--small", data: { testid: "current-month" } %>
+      <% end %>
+      <% if ShiftCalendar.navigable?(calendar.next_month) %>
+        <%= link_to "翌月 →", shifts_path(month: calendar.next_month.strftime("%Y-%m")),
+                    class: "button button--ghost button--small", rel: "next", data: { testid: "next-month" } %>
+      <% end %>
+    </nav>
+  </header>
+
+  <section class="card section" aria-labelledby="shift-summary-title" data-testid="shift-month-summary">
+    <h2 id="shift-summary-title" class="card__title">この月のシフト</h2>
+    <dl class="summary">
+      <div class="summary__item">
+        <dt class="summary__label">シフトの日数</dt>
+        <dd class="summary__value" data-testid="shift-days"><%= calendar.scheduled_days.size %><span class="summary__unit">日</span></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">実働の予定</dt>
+        <dd class="summary__value" data-testid="shift-scheduled-total"><%= format_duration(calendar.scheduled_work_minutes) %></dd>
+        <dd class="summary__caption">シフトの時間から休憩を引いた合計</dd>
+      </div>
+      <div class="summary__item summary__item--wide">
+        <dt class="summary__label">次回のシフト</dt>
+        <dd class="summary__value summary__value--text" data-testid="shift-next">
+          <% if (next_shift = summary.next_shift) %>
+            <span class="nowrap"><%= l(next_shift.work_date, format: :short_with_day) %></span>
+            <span class="nowrap" data-testid="shift-next-range"><%= published_shift_range(next_shift) %></span>
+          <% else %>
+            <span class="muted">予定なし</span>
+          <% end %>
+        </dd>
+      </div>
+    </dl>
+    <% if (revised = calendar.revised_days).any? %>
+      <p class="shift-calendar__revised-note" data-testid="shift-revised-note">
+        <span class="badge badge--warning">変更あり</span>
+        公開の後に変わったシフトが <%= revised.size %>日 あります（<%= revised.map { |day| l(day.date, format: :short_with_day) }.join("、") %>）。時間を確かめてください。
+      </p>
+    <% end %>
+  </section>
+
+  <section class="card card--flush section" aria-labelledby="calendar-title">
+    <div class="history-legend">
+      <h2 id="calendar-title" class="history-legend__title">カレンダー</h2>
+      <p class="history-legend__items muted">
+        <span class="history-legend__swatch history-legend__swatch--saturday" aria-hidden="true"></span>土曜
+        <span class="history-legend__swatch history-legend__swatch--sunday" aria-hidden="true"></span>日曜・祝日
+        <span class="badge badge--warning history-legend__badge" aria-hidden="true">変更あり</span>公開の後に変わったシフト
+        <span class="badge badge--leave history-legend__badge" aria-hidden="true">有給（全日）</span>承認済みの休暇
+        <span class="badge badge--danger-soft history-legend__badge" aria-hidden="true">遅刻</span>遅刻・早退・欠勤（過去の日）
+      </p>
+    </div>
+
+    <div class="shift-calendar" role="table" aria-label="<%= calendar.label %>のシフト" data-testid="shift-calendar">
+      <div class="shift-calendar__head" role="row">
+        <% %w[月 火 水 木 金 土 日].each_with_index do |weekday, index| %>
+          <span role="columnheader" class="shift-calendar__weekday <%= { 5 => "shift-calendar__weekday--saturday", 6 => "shift-calendar__weekday--sunday" }[index] %>"><%= weekday %></span>
+        <% end %>
+      </div>
+      <% calendar.weeks.each do |week| %>
+        <div class="shift-calendar__week" role="row">
+          <% week.each do |day| %>
+            <%= render "day", day: day, today: today %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </section>
+
+  <p class="summary__note muted">
+    シフトは、管理者が週ごとに「公開」すると表示されます。公開の前の変更は、公開されるまで表示されません。
+    「翌」は日付をまたいで翌日に終わるシフトです（開始した日のシフトとして表示します）。
+    遅刻・早退・欠勤は、シフトの開始・終了の時刻と打刻を比べて付けます（1分までは付けません）。<%= link_to "勤怠履歴", attendances_path %>で、予定と実績を並べて確認できます。
+  </p>
+</div>

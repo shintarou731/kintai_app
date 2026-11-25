@@ -1,0 +1,23 @@
+<% if notice.present? || alert.present? %>
+  <div class="flash-area">
+    <% if notice.present? %>
+      <div class="flash flash--notice" role="status"><%= notice %></div>
+    <% end %>
+    <% if alert.present? %>
+      <div class="flash flash--alert" role="alert"><%= alert %></div>
+    <% end %>
+  </div>
+<% end %>
+<%# 続けて操作する画面（シフト表のパターンの割り当て）の結果は、ページの中に差し込まず、画面上部に重ねて出す（下の表の位置をずらさない）。
+    成功は数秒で消え、エラーは閉じるまで残る。key はページの更新（morph）で同じ要素が使い回されても、表示し直すため %>
+<% toast = flash[:toast_alert].presence || flash[:toast_notice].presence %>
+<% if toast %>
+  <% kind = flash[:toast_alert].present? ? "alert" : "notice" %>
+  <div id="toast-area" class="toast-area" data-controller="toast" data-toast-key-value="<%= SecureRandom.hex(6) %>"
+       data-toast-auto-hide-value="<%= kind == "notice" %>" data-testid="toast">
+    <div class="flash flash--<%= kind %> toast" role="<%= kind == "alert" ? "alert" : "status" %>">
+      <span class="toast__message"><%= toast %></span>
+      <button type="button" class="toast__close" data-action="toast#close" aria-label="メッセージを閉じる">×</button>
+    </div>
+  </div>
+<% end %>

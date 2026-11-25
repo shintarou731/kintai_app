@@ -1,0 +1,84 @@
+<%# 有給休暇の付与・取得の履歴（新しい順）。「休暇」画面（本人）と、管理者の付与画面で使う %>
+<% entries = account.history %>
+<% ledger = account.ledger %>
+<% leave_path = local_assigns.fetch(:leave_path, ->(leave) { approval_request_path(leave) }) %>
+<section class="section" aria-labelledby="paid-leave-history-title" data-testid="paid-leave-history">
+  <h2 id="paid-leave-history-title" class="section__title">有給休暇の付与・取得の履歴</h2>
+  <% if entries.any? %>
+    <div class="card card--flush">
+      <table class="table table--responsive paid-leave-history" data-testid="paid-leave-history-table">
+        <thead>
+          <tr>
+            <th scope="col">日付</th>
+            <th scope="col">種類</th>
+            <th scope="col">日数</th>
+            <th scope="col">内容</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% entries.each do |entry| %>
+            <% record = entry.record %>
+            <tr data-testid="paid-leave-history-row" data-kind="<%= entry.kind %>" class="paid-leave-history__row paid-leave-history__row--<%= entry.kind %>">
+              <td data-label="日付" class="table__primary" data-column="date"><%= paid_leave_history_date(entry) %></td>
+              <td data-label="種類" data-column="kind"><%= paid_leave_history_kind_badge(entry) %></td>
+              <td data-label="日数" data-column="days" class="paid-leave-history__days">
+                <% case entry.kind %>
+                <% when :cancelled %>
+                  <s class="muted"><%= paid_leave_signed_days(-entry.days) %></s> <span class="paid-leave-history__returned">戻し済み</span>
+                <% when :pending %>
+                  <span class="muted" title="承認されるまで残日数から引きません">（<%= paid_leave_signed_days(entry.days) %>）</span>
+                <% when :removal %>
+                  <s class="muted"><%= paid_leave_signed_days(entry.days) %></s> <span class="paid-leave-history__returned">残日数に数えません</span>
+                <% else %>
+                  <%= paid_leave_signed_days(entry.days) %>
+                <% end %>
+              </td>
+              <td data-label="内容" data-column="detail" class="table__wrap paid-leave-history__detail">
+                <%# 375px のカード表示では td が横並び（flex）になるので、中身を1つの要素にまとめて、ラベルの右の幅をすべて使う %>
+                <div class="paid-leave-history__detail-body">
+                <% case entry.kind %>
+                <% when :grant %>
+                  有効期限 <%= l(record.expires_on) %> まで・使用 <%= format_leave_days(ledger.used_days(record)) %>・残り <%= format_leave_days(ledger.remaining_days(record)) %>
+                  <%= paid_leave_grant_state_badge(ledger, record) %>
+                  <% if record.note.present? %><span class="paid-leave-history__note"><%= record.note %></span><% end %>
+                <% when :lapse %>
+                  <%= l(record.granted_on) %> 付与分の有効期限（<%= l(record.expires_on) %>）が切れ、使わなかった分が失効しました
+                <% when :usage %>
+                  <%= link_to "有給休暇・#{record.day_part_label}（#{leave_days_label(record)}）", leave_path.call(record) %>
+                  <% if (sources = paid_leave_usage_sources(entry.usage)).present? %>
+                    <span class="paid-leave-history__source"><%= sources %></span>
+                  <% end %>
+                  <% if entry.usage&.uncovered_half_days.to_i.positive? %>
+                    <span class="paid-leave-history__uncovered" data-testid="paid-leave-uncovered">
+                      うち <%= format_leave_days(PaidLeaveLedger.days(entry.usage.uncovered_half_days)) %> は付与で賄えていません
+                    </span>
+                  <% end %>
+                <% when :cancelled %>
+                  <%= link_to "有給休暇・#{record.day_part_label}（#{leave_days_label(record)}）", leave_path.call(record) %>
+                  <span class="paid-leave-history__source">
+                    <%= record.directly_cancelled? ? "管理者が取り消した" : "取消申請が承認された" %>ため、残日数に戻しました（<%= l(record.cancelled_at, format: :short) %>）
+                  </span>
+                <% when :pending %>
+                  <%= link_to "有給休暇・#{record.day_part_label}（#{leave_days_label(record)}）", leave_path.call(record) %>
+                  <span class="paid-leave-history__source">承認待ち。承認されると残日数から引かれます</span>
+                <% when :removal %>
+                  <%= l(record.granted_on) %> 付与の <%= format_leave_days(record.granted_days) %>（有効期限 <%= l(record.expires_on) %> まで）を削除しました
+                  <span class="paid-leave-history__source" data-testid="paid-leave-removal-meta">
+                    削除：<%= record.removed_by&.name || "—" %>（<%= l(record.removed_at) %>）
+                  </span>
+                  <span class="paid-leave-history__note" data-testid="paid-leave-removal-reason">理由：<%= record.removal_reason %></span>
+                <% end %>
+                </div>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <p class="summary__note muted">新しい順に並べています。取得は、休暇の日ごとに、その日に使える付与のうち古い付与から順に充てます。</p>
+  <% else %>
+    <div class="card empty-state" data-testid="paid-leave-history-empty">
+      <p>有給休暇の付与・取得の記録はまだありません。</p>
+    </div>
+  <% end %>
+</section>

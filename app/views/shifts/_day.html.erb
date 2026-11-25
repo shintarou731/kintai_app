@@ -1,0 +1,39 @@
+<%# シフトのカレンダーの1日。前後の月の日は薄く出す（カード表示（375px）では出さない） %>
+<% shift = day.shift %>
+<% kind = day.day_kind %>
+<% holiday = day.holiday_name %>
+<% check = day.check %>
+<% full_leave = day.full_day_leave %>
+<div role="cell"
+     class="shift-calendar__day <%= "shift-calendar__day--#{kind}" unless kind == :weekday %> <%= "shift-calendar__day--outside" unless day.in_month? %> <%= "shift-calendar__day--today" if day.date == today %> <%= "shift-calendar__day--has-shift" if shift %> <%= "shift-calendar__day--empty" if !shift && day.leaves.none? %>"
+     data-date="<%= day.date.iso8601 %>" data-testid="<%= day.in_month? ? "calendar-day" : "calendar-outside-day" %>"
+     aria-current="<%= day.date == today ? "date" : "false" %>">
+  <p class="shift-calendar__date">
+    <span class="shift-calendar__number"><%= day.in_month? ? day.date.day : l(day.date, format: :short) %></span>
+    <span class="shift-calendar__weekday-inline">(<%= l(day.date, format: "%a") %>)</span>
+    <% if day.date == today %><span class="badge badge--accent shift-calendar__today">今日</span><% end %>
+  </p>
+  <% if holiday %>
+    <p class="shift-calendar__holiday" title="国民の祝日（休日）" data-testid="holiday-name"><%= holiday %></p>
+  <% end %>
+  <% if shift %>
+    <p class="shift-calendar__time" data-testid="calendar-shift"><%= published_shift_range(shift) %></p>
+    <p class="shift-calendar__meta"><%= shift_break_label(shift.published_break_minutes) %>・実働 <%= format_duration(shift.published_scheduled_work_minutes) %></p>
+    <%= shift_revised_badge(shift) %>
+  <% end %>
+  <% day.effective_leaves.each do |leave| %>
+    <span class="badge badge--leave shift-calendar__leave" data-testid="calendar-leave" title="<%= leave.description %>（承認済み）"><%= leave.day_label %></span>
+  <% end %>
+  <% day.pending_leaves.each do |leave| %>
+    <span class="badge badge--leave-pending shift-calendar__leave" data-testid="calendar-leave" title="<%= leave.description %>（承認待ち）"><%= leave.day_label %>・申請中</span>
+  <% end %>
+  <% if shift && full_leave %>
+    <p class="shift-calendar__note">休暇の日のシフトです</p>
+  <% end %>
+  <% if check.marked? || check.status == :not_clocked_in %>
+    <p class="shift-calendar__marks"><%= shift_mark_badges(check) %><%= shift_check_pending_badge(check) %></p>
+  <% end %>
+  <% if !shift && day.leaves.none? && day.in_month? %>
+    <p class="shift-calendar__off">シフトなし</p>
+  <% end %>
+</div>

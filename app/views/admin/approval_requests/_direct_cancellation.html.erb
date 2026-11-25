@@ -1,0 +1,76 @@
+<%# 承認済みの休暇の直接取消（管理者）。承認画面の休暇の詳細で使う %>
+<% applicant = leave.user %>
+<% self_status = leave.self_review_status(current_user, active_admin_count: active_admin_count) %>
+<% blockers = leave.direct_cancellation_blockers(current_user, active_admin_count: active_admin_count) %>
+<% pending_cancellation = leave.pending_cancellation %>
+<section class="card section leave-direct-cancel" aria-labelledby="direct-cancel-title" data-testid="direct-cancellation-section">
+  <h2 id="direct-cancel-title" class="card__title card__title--small">休暇の取消（管理者）</h2>
+
+  <% if leave.cancelled? %>
+    <p class="request-actions__note" data-testid="direct-cancellation-done">
+      <% if leave.directly_cancelled? %>
+        この休暇は、<%= leave_direct_cancellation_label(leave) %>に直接取り消されました。取消の理由は上の「休暇の内容」にあります。
+      <% else %>
+        この休暇は、取消申請の承認で<%= l(leave.cancelled_at, format: :short) %>に取り消されました。
+      <% end %>
+      本人の勤怠履歴には表示されません。
+    </p>
+  <% else %>
+    <% if self_status == :forbidden %>
+      <div class="notice-box notice-box--info" role="note" data-testid="self-cancellation-notice">
+        <p class="notice-box__title">ご自身の休暇は他の管理者が取り消します</p>
+        <p class="notice-box__body">有効な管理者が<%= active_admin_count %>名いるため、ご自身の休暇は直接取り消せません。取り消す必要がある場合は、他の管理者に依頼してください。</p>
+      </div>
+    <% elsif self_status == :allowed %>
+      <div class="notice-box notice-box--accent" role="note" data-testid="self-cancellation-notice">
+        <p class="notice-box__title">ご自身の休暇です</p>
+        <p class="notice-box__body">管理者が1名のため、ご自身の休暇を取り消せます。取り消した管理者として、あなたの氏名と日時・理由が記録されます。</p>
+      </div>
+    <% end %>
+
+    <% if pending_cancellation %>
+      <div class="notice-box notice-box--warning" role="note" data-testid="direct-cancellation-pending-request">
+        <p class="notice-box__title">この休暇には承認待ちの取消申請があります</p>
+        <p class="notice-box__body">
+          <%= l(pending_cancellation.created_at, format: :short) %> に本人から取消申請が出ています。
+          ここで直接取り消すと、その取消申請も処理済みになり、承認待ちの一覧から消えます。
+          <%= link_to "取消申請を見る", admin_approval_request_path(pending_cancellation), class: "notice-box__link" %>
+        </p>
+      </div>
+    <% end %>
+
+    <% if blockers.any? %>
+      <% unless self_status == :forbidden %>
+        <ul class="request-actions__note muted" data-testid="direct-cancellation-blockers">
+          <% blockers.each do |message| %><li><%= message %></li><% end %>
+        </ul>
+      <% end %>
+      <p class="request-actions__note muted" data-testid="direct-cancellation-unavailable">この休暇を直接取り消す操作はありません。</p>
+    <% else %>
+      <p class="request-actions__note muted">
+        承認済みの休暇は、開始日が今日・過去・未来のどれでも、ここから直接取り消せます。取消申請や承認の手続きは不要で、操作した時点で取り消されます。
+        <% if leave.target_date == Date.current %>
+          <span data-testid="direct-cancellation-started-note">この休暇は今日が開始日です。実際に勤務したかどうかを確認してから取り消してください。</span>
+        <% elsif leave.target_date < Date.current %>
+          <span data-testid="direct-cancellation-started-note">この休暇は開始日を過ぎています。実際に勤務したかどうかを確認してから取り消してください。</span>
+        <% end %>
+      </p>
+      <%= form_with model: direct_cancellation, scope: :leave_direct_cancellation, url: admin_approval_request_cancellation_path(leave),
+                    method: :post, class: "form leave-cancel__form", data: { testid: "direct-cancellation-form" } do |f| %>
+        <%= render "shared/form_errors", record: direct_cancellation %>
+        <div class="form__field">
+          <%= f.label :reason, class: "form__label" do %>取消の理由 <span class="form__required">必須</span><% end %>
+          <%= f.text_area :reason, class: "form__input form__textarea", rows: 2, required: true,
+                                   maxlength: ApprovalRequest::REASON_MAX_LENGTH,
+                                   placeholder: "例：本人から体調が回復して出勤したと連絡があったため。" %>
+          <p class="form__hint">理由は、取り消した管理者・日時とともに記録され、本人の休暇の詳細にも表示されます（<%= ApprovalRequest::REASON_MAX_LENGTH %>文字まで）。</p>
+        </div>
+        <div class="form__actions">
+          <%= f.submit "この休暇を取り消す", class: "button button--danger",
+                                              data: { turbo_confirm: "#{applicant.name} さんの #{leave.description}を取り消しますか？本人の勤怠履歴の該当日から休暇の表示が消えます。取り消した休暇は元に戻せません。",
+                                                      turbo_submits_with: "取消中…", testid: "direct-cancellation-submit" } %>
+        </div>
+      <% end %>
+    <% end %>
+  <% end %>
+</section>

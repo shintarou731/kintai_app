@@ -1,0 +1,94 @@
+<% content_for :title, "勤務ルール設定" %>
+<% setting = @setting %>
+<% today = Date.current %>
+<% saved_closing_day = setting.closing_day_in_database %>
+
+<div class="page page--narrow">
+  <header class="page__header">
+    <p class="page__eyebrow">管理</p>
+    <h1 class="page__title">勤務ルール設定</h1>
+    <p class="page__lead muted">残業時間の計算や、勤怠を集計する「1か月」の範囲に使うルールです。変更すると、過去の月を含む勤怠履歴の表示に反映されます。</p>
+  </header>
+
+  <section class="card section" aria-labelledby="rules-title">
+    <h2 id="rules-title" class="card__title">勤務ルール</h2>
+    <p class="settings-meta muted" data-testid="settings-meta">
+      <% if setting.persisted? %>
+        最終更新：<%= l(setting.updated_at, format: :long) %><% if setting.updated_by %>（<%= setting.updated_by.name %>）<% end %>
+      <% else %>
+        まだ保存されていません。初期値（所定 8:00・休憩 1:00・月末締め・警告ライン 45時間）で動作しています。
+      <% end %>
+    </p>
+
+    <%= form_with model: setting, url: admin_work_rule_setting_path, method: :patch, class: "form", data: { testid: "work-rules-form" } do |f| %>
+      <%= render "shared/form_errors", record: setting %>
+
+      <div class="form__grid">
+        <div class="form__field">
+          <%= f.label :scheduled_work_time, class: "form__label" do %>1日の所定労働時間 <span class="form__required">必須</span><% end %>
+          <%= f.text_field :scheduled_work_time, class: "form__input form__input--duration", placeholder: "8:00",
+                                                 autocomplete: "off", maxlength: 6, aria: { describedby: "scheduled-work-time-hint" } %>
+          <p class="form__hint" id="scheduled-work-time-hint">時:分で入力（0:01〜24:00、初期値 8:00）。1日の実働時間のうち、これを超えた部分が残業時間になります。</p>
+        </div>
+
+        <div class="form__field">
+          <%= f.label :standard_break_time, class: "form__label" do %>標準の休憩時間 <span class="form__required">必須</span><% end %>
+          <%= f.text_field :standard_break_time, class: "form__input form__input--duration", placeholder: "1:00",
+                                                 autocomplete: "off", maxlength: 6, aria: { describedby: "standard-break-time-hint" } %>
+          <p class="form__hint" id="standard-break-time-hint">時:分で入力（0:00〜24:00、初期値 1:00）。1日の勤務で標準とする休憩の長さです。実際の休憩は打刻した時間で計算します。</p>
+        </div>
+
+        <div class="form__field">
+          <%= f.label :closing_day, class: "form__label" do %>月の締め日 <span class="form__required">必須</span><% end %>
+          <%= f.select :closing_day, WorkRuleSetting.closing_day_options, {}, class: "form__input", aria: { describedby: "closing-day-hint" } %>
+          <p class="form__hint" id="closing-day-hint">初期値は月末。例：20日締めなら「11月度」は 10/21〜11/20 です。</p>
+        </div>
+
+        <div class="form__field">
+          <%= f.label :overtime_warning_hours, class: "form__label" do %>月の残業時間の警告ライン <span class="form__required">必須</span><% end %>
+          <div class="input-with-unit">
+            <%= f.number_field :overtime_warning_hours, class: "form__input", step: 1, inputmode: "numeric",
+                                                        aria: { describedby: "overtime-warning-hours-hint" } %>
+            <span class="input-with-unit__unit">時間</span>
+          </div>
+          <p class="form__hint" id="overtime-warning-hours-hint">1〜744 の整数（初期値 45時間）。1か月の残業時間の目安です。</p>
+        </div>
+      </div>
+
+      <div class="form__actions">
+        <%= f.submit "保存する", class: "button button--primary", data: { turbo_submits_with: "保存中…" } %>
+        <%= link_to "入力を取り消す", admin_work_rule_setting_path, class: "button button--ghost" %>
+      </div>
+    <% end %>
+  </section>
+
+  <section class="card card--flush section" aria-labelledby="periods-title" data-testid="closing-day-periods">
+    <div class="settings-periods__header">
+      <h2 id="periods-title" class="card__title">締め日ごとの「1か月」の範囲</h2>
+      <p class="muted settings-periods__lead">今日（<%= l(today, format: :short_with_day) %>）が属する月度の例です。</p>
+    </div>
+    <table class="table table--responsive settings-periods__table">
+      <thead>
+        <tr>
+          <th scope="col">締め日</th>
+          <th scope="col">今日が属する月度</th>
+          <th scope="col">期間</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% [ nil, *WorkRuleSetting::CLOSING_DAYS ].each do |closing_day| %>
+          <% period = AttendancePeriod.containing(today, closing_day: closing_day) %>
+          <% selected = closing_day == saved_closing_day %>
+          <tr class="<%= "is-selected" if selected %>" data-closing-day="<%= closing_day || "end" %>">
+            <td class="table__primary">
+              <%= WorkRuleSetting.closing_day_label(closing_day) %>締め
+              <% if selected %><span class="badge badge--accent">現在の設定</span><% end %>
+            </td>
+            <td data-label="月度"><%= period.label %></td>
+            <td data-label="期間" class="settings-periods__range"><%= l(period.start_date, format: :short_with_day) %>〜<%= l(period.end_date, format: :short_with_day) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </section>
+</div>

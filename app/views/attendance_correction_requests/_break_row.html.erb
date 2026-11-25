@@ -1,0 +1,26 @@
+<%# 打刻修正申請の休憩1行。index は送信する名前の番号（JS で追加する行は NEW_INDEX を置き換える）。
+    scope は送信する名前の先頭（管理者の直接修正では attendance_record_editor） %>
+<% name = "#{local_assigns.fetch(:scope, "attendance_correction_request")}[break_inputs][#{index}]" %>
+<% id = "correction_break_#{index}" %>
+<li class="break-row<%= " is-invalid" if invalid %>" data-break-rows-target="row" data-testid="break-row">
+  <span class="break-row__label" data-break-rows-target="label">休憩<%= number %></span>
+  <div class="break-row__fields">
+    <div class="time-input">
+      <span class="time-input__caption" aria-hidden="true">開始</span>
+      <%= select_tag "#{name}[start_day]", options_for_select(correction_day_options(date), input.start_day),
+                     id: "#{id}_start_day", class: "form__input time-input__select", "aria-label": "休憩#{number}の開始日" %>
+      <%= time_field_tag "#{name}[start_time]", input.start_time, id: "#{id}_start_time",
+                         class: "form__input time-input__time", "aria-label": "休憩#{number}の開始時刻" %>
+    </div>
+    <span class="break-row__separator" aria-hidden="true">〜</span>
+    <div class="time-input">
+      <span class="time-input__caption" aria-hidden="true">終了</span>
+      <%= select_tag "#{name}[end_day]", options_for_select(correction_day_options(date), input.end_day),
+                     id: "#{id}_end_day", class: "form__input time-input__select", "aria-label": "休憩#{number}の終了日" %>
+      <%= time_field_tag "#{name}[end_time]", input.end_time, id: "#{id}_end_time",
+                         class: "form__input time-input__time", "aria-label": "休憩#{number}の終了時刻" %>
+    </div>
+  </div>
+  <button type="button" class="button button--ghost button--small break-row__remove" data-action="break-rows#remove"
+          aria-label="休憩<%= number %>を削除">削除</button>
+</li>

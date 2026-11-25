@@ -1,0 +1,14 @@
+<%# 予実の確認の、月度の移動（path_builder は月度のパラメーター（今月度は nil）から URL を作る） %>
+<nav class="month-nav" aria-label="表示する月の切り替え">
+  <% if period.previous.navigable? %>
+    <%= link_to "← 前#{period.unit}", path_builder.call(period.previous.to_param),
+                class: "button button--ghost button--small", rel: "prev", data: { testid: "previous-month" } %>
+  <% end %>
+  <% unless period == current_period %>
+    <%= link_to "今#{period.unit}", path_builder.call(nil), class: "button button--ghost button--small", data: { testid: "current-month" } %>
+  <% end %>
+  <% if period.next.navigable? %>
+    <%= link_to "翌#{period.unit} →", path_builder.call(period.next.to_param),
+                class: "button button--ghost button--small", rel: "next", data: { testid: "next-month" } %>
+  <% end %>
+</nav>

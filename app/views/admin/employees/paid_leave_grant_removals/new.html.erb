@@ -1,0 +1,68 @@
+<% content_for :title, "付与の削除（#{@employee.name}）" %>
+<% grant = @current_grant %>
+<% ledger = @account.ledger %>
+<% removal = @removal %>
+
+<div class="page">
+  <%= link_to "← #{@employee.name} さんの有給休暇に戻る", admin_employee_paid_leave_grants_path(@employee), class: "back-link" %>
+  <header class="page__header">
+    <div>
+      <p class="page__eyebrow">管理・従業員・有給休暇</p>
+      <h1 class="page__title">付与の削除</h1>
+      <p class="page__lead muted">誤って登録した付与を取り除くための操作です。削除した付与は残日数に数えなくなり、削除の記録（削除した管理者・日時・理由・付与の内容）が付与・取得の履歴に残ります。</p>
+    </div>
+  </header>
+
+  <section class="card section" aria-labelledby="removal-grant-title" data-testid="removal-grant">
+    <h2 id="removal-grant-title" class="card__title card__title--small">削除する付与</h2>
+    <dl class="request-meta">
+      <div><dt>従業員</dt><dd><%= @employee.name %></dd></div>
+      <div><dt>付与日</dt><dd data-testid="removal-granted-on"><%= l(grant.granted_on, format: :long) %></dd></div>
+      <div><dt>日数</dt><dd data-testid="removal-days"><%= format_leave_days(grant.granted_days) %></dd></div>
+      <div><dt>有効期限</dt><dd data-testid="removal-expires-on"><%= l(grant.expires_on, format: :long) %> まで</dd></div>
+      <div>
+        <dt>使用・残り</dt>
+        <dd data-testid="removal-usage">
+          使用 <%= format_leave_days(ledger.used_days(grant)) %>・残り <%= format_leave_days(ledger.remaining_days(grant)) %>
+          <%= paid_leave_grant_state_badge(ledger, grant) %>
+        </dd>
+      </div>
+      <div><dt>登録</dt><dd><%= grant.granted_by&.name || "—" %>（<%= l(grant.created_at, format: :short) %>）<% if grant.note.present? %>・<%= grant.note %><% end %></dd></div>
+      <div>
+        <dt>削除後の残日数</dt>
+        <dd data-testid="removal-balance-after">
+          <%= paid_leave_balance_label(@account.balance) %> → <strong><%= paid_leave_balance_label(@account_after.balance) %></strong>
+          <span class="muted">（申請できる残り <%= format_leave_days(@account.requestable) %> → <%= format_leave_days(@account_after.requestable) %>）</span>
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <% if @blocked_message %>
+    <div class="notice-box notice-box--danger section" role="alert" data-testid="removal-blocked">
+      <p class="notice-box__title">この付与は削除できません</p>
+      <p class="notice-box__body"><%= @blocked_message %></p>
+    </div>
+  <% end %>
+
+  <section class="card section" aria-labelledby="removal-form-title">
+    <h2 id="removal-form-title" class="card__title card__title--small">削除の理由</h2>
+    <%= form_with model: removal, scope: :paid_leave_grant_removal, url: admin_employee_paid_leave_grant_removal_path(@employee, grant),
+                  method: :post, class: "form", data: { testid: "removal-form" } do |f| %>
+      <%= render "shared/form_errors", record: removal %>
+      <div class="form__field">
+        <%= f.label :reason, class: "form__label" do %>削除の理由 <span class="form__required">必須</span><% end %>
+        <%= f.text_area :reason, class: "form__input form__textarea", rows: 3, required: true,
+                                 maxlength: PaidLeaveGrantRemoval::REASON_MAX_LENGTH, disabled: @blocked_message.present?,
+                                 placeholder: "例：日数を 10日 ではなく 1日 と誤って登録したため。" %>
+        <p class="form__hint">理由は、削除した管理者・日時とともに記録され、本人の「休暇」画面の履歴にも表示されます（<%= PaidLeaveGrantRemoval::REASON_MAX_LENGTH %>文字まで）。</p>
+      </div>
+      <div class="form__actions">
+        <%= f.submit "この付与を削除する", class: "button button--danger", disabled: @blocked_message.present?,
+                                        data: { turbo_confirm: "#{l(grant.granted_on)} 付与の #{format_leave_days(grant.granted_days)} を削除しますか？削除した付与は残日数に数えなくなり、元に戻せません（必要なら付与し直してください）。",
+                                                turbo_submits_with: "削除中…", testid: "removal-submit" } %>
+        <%= link_to "やめる", admin_employee_paid_leave_grants_path(@employee), class: "button button--ghost" %>
+      </div>
+    <% end %>
+  </section>
+</div>

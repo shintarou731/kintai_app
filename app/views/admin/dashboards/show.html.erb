@@ -1,0 +1,195 @@
+<% dashboard = @dashboard %>
+<% now = dashboard.now %>
+<% counts = dashboard.counts %>
+<% content_for :title, "ダッシュボード" %>
+<%# 戻る・進むで表示したときも、古い状態の画面（Turbo のキャッシュ）を出さず、読み込み直す %>
+<% content_for :head do %><meta name="turbo-cache-control" content="no-cache"><% end %>
+
+<div class="page dashboard">
+  <header class="page__header page__header--with-actions">
+    <div>
+      <p class="page__eyebrow">管理</p>
+      <h1 class="page__title">ダッシュボード</h1>
+      <p class="page__lead muted" data-testid="dashboard-as-of">
+        <%= l(now.to_date, format: :long) %> <%= format_clock_time(now) %> 時点の状況です。最新の状態は「更新」で読み込み直してください。
+      </p>
+    </div>
+    <div class="dashboard__actions">
+      <%= link_to "更新", admin_dashboard_path, class: "button button--primary button--small", data: { testid: "dashboard-reload" } %>
+      <%= link_to "ホーム（打刻）へ", root_path, class: "button button--ghost button--small" %>
+    </div>
+  </header>
+
+  <section class="section" aria-labelledby="dashboard-counts-title" data-testid="dashboard-counts">
+    <h2 id="dashboard-counts-title" class="section__title">今日の人数 <span class="muted dashboard__total">有効なメンバー <%= dashboard.rows.size %>名</span></h2>
+    <ul class="dashboard-counts">
+      <% AttendanceDashboard::STATES.each do |state| %>
+        <% config = DashboardsHelper::DASHBOARD_STATES.fetch(state) %>
+        <li class="dashboard-counts__item dashboard-counts__item--<%= config[:modifier] %>" data-testid="dashboard-count" data-state="<%= state %>">
+          <span class="dashboard-counts__label"><%= config[:label] %></span>
+          <span class="dashboard-counts__value"><%= counts[state] %><span class="summary__unit">名</span></span>
+          <% if state == :not_started %>
+            <% late = dashboard.late_count %>
+            <span class="dashboard-counts__sub <%= "dashboard-counts__sub--alert" if late.positive? %>" data-testid="dashboard-late-count">
+              うち遅れ <%= late %>名
+            </span>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  </section>
+
+  <section class="section" aria-labelledby="dashboard-todo-title" data-testid="dashboard-todo">
+    <h2 id="dashboard-todo-title" class="section__title">対応が必要なこと</h2>
+    <div class="dashboard-todo">
+      <% approvals = dashboard.actionable_approval_count %>
+      <div class="card dashboard-todo__item <%= "dashboard-todo__item--alert" if approvals.positive? %>" data-testid="dashboard-approvals">
+        <p class="dashboard-todo__label">承認待ちの申請</p>
+        <p class="dashboard-todo__value"><%= approvals %><span class="summary__unit">件</span></p>
+        <p class="dashboard-todo__note muted">
+          あなたが処理できる件数です（ナビの「承認」の件数と同じ）。
+          <% others = dashboard.pending_approval_count - approvals %>
+          <% if others.positive? %>ほかに、あなたの申請 <%= others %>件 は他の管理者が処理します。<% end %>
+        </p>
+        <%= link_to "承認の一覧へ", admin_approval_requests_path, class: "button button--ghost button--small", data: { testid: "dashboard-approvals-link" } %>
+      </div>
+
+      <% missing = dashboard.missing_clock_outs %>
+      <div class="card dashboard-todo__item <%= "dashboard-todo__item--alert" if missing.any? %>" data-testid="dashboard-missing">
+        <p class="dashboard-todo__label">前日以前の退勤漏れ</p>
+        <p class="dashboard-todo__value"><%= missing.count %><span class="summary__unit">件</span></p>
+        <p class="dashboard-todo__note muted">
+          退勤の打刻が無いまま、勤務日が過ぎた勤務です。
+          <% if missing.open_count.positive? %>うち <%= missing.open_count %>件 は日付をまたいで勤務中で、本人がまだ退勤できます。<% end %>
+          <% if missing.pending_correction_count.positive? %>修正申請が出ているもの <%= missing.pending_correction_count %>件。<% end %>
+        </p>
+        <%= link_to "退勤漏れの一覧へ", admin_missing_clock_outs_path, class: "button button--ghost button--small", data: { testid: "dashboard-missing-link" } %>
+      </div>
+
+      <% overtime_rows = dashboard.overtime_rows %>
+      <div class="card dashboard-todo__item <%= "dashboard-todo__item--alert" if overtime_rows.any? %>" data-testid="dashboard-overtime-summary">
+        <p class="dashboard-todo__label">残業の警告（今<%= dashboard.period.unit %>）</p>
+        <p class="dashboard-todo__value"><%= overtime_rows.size %><span class="summary__unit">名</span></p>
+        <p class="dashboard-todo__note muted">
+          残業が警告ライン（<%= dashboard.rules.overtime_warning_hours %>時間）の80%（<%= format_duration(dashboard.overtime_alert_minutes) %>）を超えた人です。
+        </p>
+        <%= link_to "一覧を見る", "#dashboard-overtime-title", class: "button button--ghost button--small" %>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="dashboard-table-title">
+    <h2 id="dashboard-table-title" class="section__title">今日の出勤状況</h2>
+    <div class="card card--flush">
+      <table class="table table--responsive dashboard-table" data-testid="dashboard-table">
+        <thead>
+          <tr>
+            <th scope="col">氏名</th>
+            <th scope="col">状態</th>
+            <th scope="col">出勤</th>
+            <th scope="col">退勤</th>
+            <th scope="col">シフト</th>
+            <th scope="col">備考</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% dashboard.sorted_rows.each do |row| %>
+            <% check = row.today_check %>
+            <tr class="<%= "dashboard-table__row--late" if row.late? %>" data-testid="dashboard-row" data-user-id="<%= row.user.id %>"
+                data-state="<%= row.late? ? "late" : row.state %>">
+              <td data-label="氏名" class="table__primary">
+                <%= row.user.name %>
+                <% if row.user.admin? %><span class="badge badge--outline">管理者</span><% end %>
+              </td>
+              <td data-label="状態"><%= dashboard_state_badge(row) %></td>
+              <td data-label="出勤" data-column="clock-in">
+                <%= dashboard_clock_in(row) %>
+                <% if row.attendance && row.attendance.work_date == check.date %><%= shift_mark_badges(check) %><% end %>
+              </td>
+              <td data-label="退勤" data-column="clock-out"><%= dashboard_clock_out(row) %></td>
+              <td data-label="シフト" data-column="shift">
+                <% if (shift = row.shift) %>
+                  <span class="nowrap dashboard-table__time"><%= published_shift_range(shift) %></span>
+                <% elsif !row.previous_shift %>
+                  <span class="muted">シフトなし</span>
+                <% end %>
+                <% if (previous = row.previous_shift) %>
+                  <span class="dashboard-table__previous-shift" data-testid="dashboard-previous-shift">前日からのシフト <span class="nowrap"><%= published_shift_range(previous) %></span></span>
+                <% end %>
+              </td>
+              <% note = capture do %>
+                <%= dashboard_late_note(row, now) %>
+                <% if row.overnight? %>
+                  <span class="muted" data-testid="dashboard-overnight">
+                    <%= l(row.attendance.work_date, format: :short_with_day) %> の勤務<%= row.attendance.clocked_out? ? "（日付をまたいで退勤）" : "（日付をまたいで勤務中）" %>
+                  </span>
+                <% end %>
+                <% row.leaves.each do |leave| %>
+                  <span class="badge badge--leave" title="<%= leave.description %>（承認済み）" data-testid="dashboard-leave"><%= leave.day_label %></span>
+                <% end %>
+                <% if check.status == :upcoming %><span class="muted">シフト前</span><% end %>
+                <%= shift_check_basis_note(check) %>
+              <% end %>
+              <td data-label="備考" data-column="note" class="dashboard-table__note <%= "dashboard-table__note--empty" if note.blank? %>"><%= note %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <p class="summary__note muted">
+      遅れは、公開済みのシフトの開始時刻を1分過ぎても出勤の打刻が無い人です（勤怠履歴の遅刻と同じ基準。半休の日は、午前半休は 13:00 を基準にします）。
+      日付をまたいで勤務中の人は「勤務中」、前日から日付をまたいで今日退勤した人は「退勤済み」に数えます。
+      休暇の日でも出勤した人は、打刻の状態で数えます。
+    </p>
+  </section>
+
+  <section class="section" aria-labelledby="dashboard-overtime-title" data-testid="dashboard-overtime">
+    <h2 id="dashboard-overtime-title" class="section__title">残業の警告（<%= dashboard.period.label %>）</h2>
+    <p class="muted list-caption">
+      <%= l(dashboard.period.start_date, format: :short_with_day) %>〜<%= l(dashboard.period.end_date, format: :short_with_day) %>
+      （<%= WorkRuleSetting.closing_day_label(dashboard.rules.closing_day) %>締め）の残業時間です。勤怠履歴の総残業時間と同じ値で、勤務中の日は今の時点までを含みます。
+    </p>
+    <% if overtime_rows.any? %>
+      <div class="card card--flush">
+        <table class="table table--responsive dashboard-overtime-table" data-testid="dashboard-overtime-table">
+          <thead>
+            <tr>
+              <th scope="col">氏名</th>
+              <th scope="col" class="table__number">残業時間</th>
+              <th scope="col" class="table__number">警告ライン比</th>
+              <th scope="col" class="table__number">警告ラインまで</th>
+              <th scope="col">状態</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% overtime_rows.each do |row| %>
+              <tr data-testid="dashboard-overtime-row" data-user-id="<%= row.user.id %>">
+                <td data-label="氏名" class="table__primary"><%= row.user.name %></td>
+                <td data-label="残業時間" class="table__number" data-column="overtime"><strong><%= format_duration(row.overtime_minutes) %></strong></td>
+                <td data-label="警告ライン比" class="table__number" data-column="percentage"><%= row.percentage %>%</td>
+                <td data-label="警告ラインまで" class="table__number" data-column="remaining">
+                  <% if row.over_warning? %>
+                    <span class="dashboard-overtime__over"><%= format_duration(row.overtime_minutes - row.warning_minutes) %> 超過</span>
+                  <% else %>
+                    残り <%= format_duration(row.warning_minutes - row.overtime_minutes) %>
+                  <% end %>
+                </td>
+                <td data-label="状態">
+                  <% if row.over_warning? %>
+                    <span class="badge badge--danger" data-testid="overtime-level" data-level="over">警告ライン超え</span>
+                  <% else %>
+                    <span class="badge badge--warning" data-testid="overtime-level" data-level="near">80%超え</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <p class="card empty-state" data-testid="dashboard-overtime-empty">
+        残業が警告ラインの80%（<%= format_duration(dashboard.overtime_alert_minutes) %>）を超えている人はいません。
+      </p>
+    <% end %>
+  </section>
+</div>

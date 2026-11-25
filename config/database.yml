@@ -8,6 +8,11 @@ default: &default
   adapter: sqlite3
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
   timeout: 5000
+  # 書き込むトランザクションは開始時に書き込みロックを取る（BEGIN IMMEDIATE）。
+  # 既定の DEFERRED では、読み取りの後で書き込みに移るときにロックを待たず
+  # SQLite3::BusyException（database is locked）で失敗することがあるため
+  # （同時に届いた申請・承認・取り下げなど）。ロック待ちの上限は timeout（ミリ秒）。
+  default_transaction_mode: immediate
 
 development:
   <<: *default

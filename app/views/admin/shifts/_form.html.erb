@@ -1,0 +1,173 @@
+<%# シフトの登録・変更の画面（マス＝従業員 × 日付ごと）。mode は :new か :edit %>
+<% week = ShiftBoard.week_start_for(shift.work_date) %>
+<% patterns = ShiftPattern.ordered.to_a %>
+<% leaves = Shift.effective_leaves_on(shift.user_id, shift.work_date) %>
+<% full_leave = leaves.find(&:full_day?) %>
+<% half_leaves = leaves.select(&:half_day?) %>
+<% holiday = HolidayCalendar.holiday_name(shift.work_date) %>
+<% editing = mode == :edit %>
+<%# 状態は DB に保存されている内容で出す（保存できなかった入力で再表示したときに、入力した値で状態が変わって見えないように） %>
+<% publication_state = editing ? shift.stored_state : (shift.persisted? ? :removing : :new) %>
+<%# 無効な従業員のシフトは変更できない（削除だけできる）。入力欄と保存のボタンを押せないようにする %>
+<% locked = !shift.user.active? %>
+<% stored_label = shift.persisted? ? shift.stored_range_label : nil %>
+<%# 入力した時間が半休の時間と重なるかを、入力に合わせて知らせる（shift-form コントローラ） %>
+<% half_day_windows = half_leaves.map { |leave| window = HalfDayLeaveWindow.range(leave, shift.work_date); day = shift.work_date.in_time_zone.beginning_of_day
+                                         { label: leave.day_label, from: ((window.begin - day) / 60).to_i, to: ((window.end - day) / 60).to_i } } %>
+
+<div class="page page--narrow">
+  <%= link_to "← シフト表に戻る（#{l(week, format: :short)}〜#{l(week + 6, format: :short)}）", admin_shifts_path(week: week.iso8601), class: "back-link" %>
+  <header class="page__header">
+    <p class="page__eyebrow">管理・シフト作成</p>
+    <h1 class="page__title" data-testid="shift-form-title">
+      <%= editing ? "シフトの変更" : "シフトの登録" %>：<%= shift.user.name %> さん・<%= l(shift.work_date, format: :month_day_with_day) %>
+      <% if holiday %><span class="history-table__holiday" data-testid="holiday-name"><%= holiday %></span><% end %>
+    </h1>
+    <% if locked %>
+      <p class="page__lead" data-testid="shift-locked-note"><span class="badge badge--muted">無効な従業員</span> 無効な従業員のシフトは変更できません（削除はできます）。変更する場合は、従業員を有効にしてください。</p>
+    <% end %>
+  </header>
+
+  <% if full_leave %>
+    <div class="notice-box notice-box--warning section" role="alert" data-testid="shift-leave-warning">
+      <p class="notice-box__title">この日は <%= shift.user.name %> さんの休暇（<%= full_leave.day_label %>）の日です</p>
+      <p class="notice-box__body">
+        承認済みの休暇（<%= full_leave.description %>）の期間中です。休暇の日にシフトを入れる場合は、本人に確認したうえで、下の「休暇の日と確認したうえで登録する」にチェックを入れてください。
+        休暇を取り消す場合は、承認画面の休暇の詳細から取り消せます。
+      </p>
+    </div>
+  <% end %>
+  <% stored_overlaps = (editing && Shift.find_by(id: shift.id)&.overlapping_half_day_leaves) || [] %>
+  <% half_leaves.each do |leave| %>
+    <% overlapping = stored_overlaps.any? { |item| item.id == leave.id } %>
+    <div class="notice-box <%= overlapping ? "notice-box--warning" : "notice-box--info" %> section" role="note" data-testid="shift-half-leave-note"
+         data-overlapping="<%= overlapping %>">
+      <p class="notice-box__title">この日は <%= shift.user.name %> さんの<%= leave.day_label %>です</p>
+      <p class="notice-box__body">
+        <%= leave.day_part_label %>は <strong><%= HalfDayLeaveWindow.label(leave) %></strong> を休みとして扱います（12:00〜13:00 は昼休みで、どちらの半休にも含めません）。
+        <% if leave.morning? %>
+          シフトは 12:00 以降に始まるようにしてください。12:00 より前に始まるシフトのままにすると、予実の比較（遅刻）では出勤の基準を 13:00 にします。
+        <% else %>
+          シフトは 13:00 までに終わるようにしてください。13:00 より後に終わるシフトのままにすると、予実の比較（早退）では退勤の基準を 12:00 にします。
+        <% end %>
+      </p>
+      <% if overlapping %>
+        <p class="notice-box__body notice-box__strong" data-testid="shift-half-leave-overlap">今のシフト（<%= stored_label %>）は、半休の時間と重なっています。</p>
+      <% end %>
+    </div>
+  <% end %>
+
+  <section class="card section" aria-labelledby="shift-form-heading">
+    <h2 id="shift-form-heading" class="card__title card__title--small">勤務の時間</h2>
+    <p class="settings-meta muted" data-testid="shift-publication-state">
+      <% case publication_state %>
+      <% when :new %>
+        新しいシフトは「下書き」です。週を「公開」するまで、従業員には見えません。
+      <% when :draft %>
+        <%= shift_state_badge(:draft) %> まだ公開していません。週を「公開」するまで、従業員には見えません。
+      <% when :published %>
+        <% if locked %>
+          <%= shift_state_badge(:published) %> 公開済みです（<%= shift.published_range_label %>）。削除すると「削除・未公開」になり、週を「公開」するまで、従業員には今の内容が見えます。
+        <% else %>
+          <%= shift_state_badge(:published) %> 公開済みです。変更すると「変更・未公開」になり、週を「公開」するまで、従業員には今の内容（<%= shift.published_range_label %>）が見えます。
+        <% end %>
+      <% when :changed %>
+        <%= shift_state_badge(:changed) %> 公開中の内容は <strong><%= shift.published_range_label %>（<%= shift_break_label(shift.published_break_minutes) %>）</strong> です。週を「公開」すると、この画面の内容に変わります。
+      <% when :removing %>
+        <%= shift_state_badge(:removing) %> 公開中のシフト（<%= shift.published_range_label %>）を削除したマスです。ここで登録すると、削除を取りやめて新しい内容にします（公開するまで、従業員には公開中の内容が見えます）。
+      <% end %>
+      <% if editing && shift.updated_by %>
+        <br>最終更新：<%= shift.updated_by.name %>（<%= l(shift.updated_at, format: :short) %>）
+      <% end %>
+    </p>
+
+    <%= form_with model: shift, url: (editing ? admin_shift_path(shift) : admin_shifts_path), method: (editing ? :patch : :post),
+                  class: "form shift-form",
+                  data: { controller: "shift-form", shift_form_half_days_value: half_day_windows.to_json, testid: "shift-form" } do |f| %>
+      <%= render "shared/form_errors", record: shift %>
+      <fieldset class="shift-form__fieldset" <%= "disabled" if locked %> data-testid="shift-form-fields">
+      <% if editing %>
+        <%= f.hidden_field :lock_version %>
+      <% else %>
+        <%= f.hidden_field :user_id %>
+        <%= f.hidden_field :work_date, value: shift.work_date.iso8601 %>
+      <% end %>
+
+      <% if patterns.any? %>
+        <div class="form__field">
+          <p class="form__label" id="pattern-fill-label">パターンから入力</p>
+          <div class="shift-form__patterns" role="group" aria-labelledby="pattern-fill-label">
+            <% patterns.each do |pattern| %>
+              <button type="button" class="shift-form__pattern" data-action="shift-form#fill"
+                      data-start="<%= shift_time_input_value(pattern.start_time) %>" data-end="<%= shift_time_input_value(pattern.end_time) %>"
+                      data-break="<%= pattern.break_minutes %>" data-testid="pattern-fill">
+                <%= pattern.name %> <span class="muted"><%= Shift.range_label(pattern.start_minute, pattern.end_minute) %></span>
+              </button>
+            <% end %>
+          </div>
+          <p class="form__hint">押すと、開始・終了・休憩に入ります（保存するまで登録されません）。</p>
+        </div>
+      <% end %>
+
+      <div class="shift-form__times">
+        <div class="form__field">
+          <%= f.label :start_time, class: "form__label" do %>開始時刻 <span class="form__required">必須</span><% end %>
+          <%= f.time_field :start_time, value: shift_time_input_value(shift.start_time), class: "form__input", required: true,
+                                        data: { shift_form_target: "start", action: "input->shift-form#preview change->shift-form#preview" } %>
+        </div>
+        <div class="form__field">
+          <%= f.label :end_time, class: "form__label" do %>終了時刻 <span class="form__required">必須</span><% end %>
+          <%= f.time_field :end_time, value: shift_time_input_value(shift.end_time), class: "form__input", required: true,
+                                      data: { shift_form_target: "end", action: "input->shift-form#preview change->shift-form#preview" } %>
+        </div>
+        <div class="form__field">
+          <%= f.label :break_minutes, class: "form__label" do %>休憩時間 <span class="form__required">必須</span><% end %>
+          <div class="input-with-unit">
+            <%= f.number_field :break_minutes, value: shift.break_minutes_before_type_cast, class: "form__input", min: 0, step: 1, inputmode: "numeric",
+                                               data: { shift_form_target: "break", action: "input->shift-form#preview" } %>
+            <span class="input-with-unit__unit">分</span>
+          </div>
+        </div>
+      </div>
+      <p class="shift-form__preview" data-shift-form-target="preview" data-testid="shift-preview" aria-live="polite"></p>
+      <p class="form__hint">
+        終了時刻が開始時刻より前なら、日付をまたいで翌日に終わるシフトになります（例：22:00〜翌6:00）。日付をまたいでも、開始した日のシフトとして扱います。
+        終了時刻を開始時刻と同じにはできません。休憩時間は勤務時間より短くしてください。
+      </p>
+
+      <% if full_leave %>
+        <div class="form__field">
+          <label class="shift-form__acknowledge">
+            <%= f.check_box :leave_acknowledged %>
+            休暇の日と確認したうえで登録する
+          </label>
+        </div>
+      <% end %>
+
+      </fieldset>
+
+      <div class="form__actions">
+        <%= f.submit editing ? "変更を保存する" : "登録する", class: "button button--primary", disabled: locked,
+                                                           title: (locked ? "無効な従業員のシフトは変更できません" : nil),
+                                                           data: { turbo_submits_with: "保存中…", testid: "shift-submit" } %>
+        <%= link_to locked ? "シフト表に戻る" : "キャンセル", admin_shifts_path(week: week.iso8601), class: "button button--ghost" %>
+      </div>
+    <% end %>
+  </section>
+
+  <% if editing %>
+    <section class="card section" aria-labelledby="shift-delete-title">
+      <h2 id="shift-delete-title" class="card__title card__title--small">このシフトを削除する</h2>
+      <p class="card__lead">
+        <% if shift.published_once? %>
+          公開中のシフトです。削除すると「削除・未公開」になり、週を「公開」すると従業員の画面からも消えます。
+        <% else %>
+          まだ公開していないシフトです。削除するとすぐに消えます。
+        <% end %>
+      </p>
+      <%= button_to "削除する", admin_shift_path(shift), method: :delete, params: { lock_version: shift.lock_version },
+                    class: "button button--danger", data: { testid: "shift-delete" },
+                    form: { data: { turbo_confirm: "#{l(shift.work_date, format: :short_with_day)} #{shift.user.name} さんのシフト（#{stored_label}）を削除します。よろしいですか？" } } %>
+    </section>
+  <% end %>
+</div>

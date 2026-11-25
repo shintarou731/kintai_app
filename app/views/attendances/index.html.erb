@@ -1,0 +1,133 @@
+<% monthly = @monthly %>
+<% period = monthly.period %>
+<% today = monthly.today %>
+<% rules = monthly.rules %>
+<% content_for :title, "勤怠履歴（#{period.label}）" %>
+
+<div class="page">
+  <header class="page__header page__header--with-actions history-header">
+    <div>
+      <p class="page__eyebrow">勤怠履歴</p>
+      <h1 class="page__title" data-testid="period-label">
+        <%= period.label %>
+        <% if monthly.current_period? %><span class="badge badge--accent">今<%= period.unit %></span><% end %>
+        <% if period.closed? %><%= period_closing_badge(period) %><% end %>
+      </h1>
+      <p class="history-header__range muted">
+        <span data-testid="period-range"><%= l(period.start_date, format: :short_with_day) %>〜<%= l(period.end_date, format: :short_with_day) %></span>
+        <%= period_basis_note(period) %>
+      </p>
+    </div>
+
+    <nav class="month-nav" aria-label="表示する月の切り替え">
+      <% if period.previous.navigable? %>
+        <%= link_to "← 前#{period.unit}", attendances_path(month: period.previous.to_param),
+                    class: "button button--ghost button--small", rel: "prev", data: { testid: "previous-month" } %>
+      <% end %>
+      <% unless monthly.current_period? %>
+        <%= link_to "今#{period.unit}", attendances_path, class: "button button--ghost button--small", data: { testid: "current-month" } %>
+      <% end %>
+      <% if period.next.navigable? %>
+        <%= link_to "翌#{period.unit} →", attendances_path(month: period.next.to_param),
+                    class: "button button--ghost button--small", rel: "next", data: { testid: "next-month" } %>
+      <% end %>
+    </nav>
+  </header>
+
+  <%= render "attendances/closed_notice", monthly: monthly, admin_view: false %>
+
+  <section class="card section" aria-labelledby="totals-title" data-testid="monthly-totals">
+    <h2 id="totals-title" class="card__title">この<%= period.unit %>の合計</h2>
+    <dl class="summary">
+      <div class="summary__item">
+        <dt class="summary__label">出勤日数</dt>
+        <dd class="summary__value" data-testid="total-days"><%= monthly.working_days_count %><span class="summary__unit">日</span></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">総実働時間</dt>
+        <dd class="summary__value" data-testid="total-worked"><%= format_duration(monthly.total_worked_minutes) %></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">総残業時間</dt>
+        <dd class="summary__value" data-testid="total-overtime"><%= format_duration(monthly.total_overtime_minutes) %></dd>
+        <% if rules.overtime_warning?(monthly.total_overtime_minutes) %>
+          <dd class="summary__caption summary__caption--danger" data-testid="overtime-warning">警告ライン（<%= rules.overtime_warning_hours %>時間）を超えています</dd>
+        <% else %>
+          <dd class="summary__caption" data-testid="overtime-warning">警告ライン <%= rules.overtime_warning_hours %>時間</dd>
+        <% end %>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">深夜時間</dt>
+        <dd class="summary__value" data-testid="total-night"><%= format_duration(monthly.total_night_minutes) %></dd>
+      </div>
+    </dl>
+    <p class="summary__marks" data-testid="shift-mark-totals">
+      <span class="summary__leaves-label">予定（シフト）との比較</span>
+      シフト <strong data-testid="total-scheduled"><%= monthly.scheduled_days_count %>日</strong>・
+      <span class="<%= "summary__marks-alert" if monthly.late_count.positive? %>">遅刻 <strong data-testid="total-late"><%= monthly.late_count %>回</strong></span>・
+      <span class="<%= "summary__marks-alert" if monthly.early_leave_count.positive? %>">早退 <strong data-testid="total-early-leave"><%= monthly.early_leave_count %>回</strong></span>・
+      <span class="<%= "summary__marks-alert" if monthly.absence_count.positive? %>">欠勤 <strong data-testid="total-absence"><%= monthly.absence_count %>回</strong></span>
+      <%= link_to "シフトを見る", shifts_path, class: "summary__leaves-link" %>
+    </p>
+    <% leave_totals = monthly.leave_day_totals %>
+    <p class="summary__leaves" data-testid="leave-totals">
+      <span class="summary__leaves-label">この<%= period.unit %>の休暇（承認済み）</span>
+      <% if leave_totals.any? %>
+        <%= leave_totals.map { |type, days| "#{LeaveRequest.leave_type_short_label(type)} #{format_leave_days(days)}" }.join("・") %>
+        <span class="muted">（休日＝土日・祝日は数えません）</span>
+      <% else %>
+        <span class="muted">なし</span>
+      <% end %>
+      <%= link_to "休暇を申請する", leave_requests_path, class: "summary__leaves-link" %>
+    </p>
+    <p class="summary__note muted">
+      残業時間＝1日の実働時間のうち所定労働時間（<%= format_duration(rules.scheduled_work_minutes) %>）を超えた部分。
+      深夜時間＝22:00〜翌5:00 に働いた時間（休憩を除く）。日付をまたいだ勤務は出勤した日に数えます。
+    </p>
+  </section>
+
+  <% missing_days = monthly.missing_clock_out_days %>
+  <% if missing_days.any? %>
+    <% open_days = monthly.open_missing_clock_out_days %>
+    <% closed_days = monthly.closed_missing_clock_out_days %>
+    <section class="notice-box notice-box--danger section" role="note" data-testid="missing-clock-out-notice">
+      <p class="notice-box__title">退勤漏れが <%= missing_days.size %> 日あります</p>
+      <% if closed_days.any? %>
+        <p class="notice-box__body" data-testid="missing-clock-out-closed">
+          <%= closed_days.map { |day| l(day.date, format: :short_with_day) }.join("、") %>
+          は退勤の打刻がありません。
+          <% if monthly.closed? %>
+            この<%= monthly.period.unit %>は締め済みのため、修正申請はできません。実際に退勤した時刻は、管理者に連絡してください。
+          <% else %>
+            出勤から24時間を過ぎたためホームからは退勤できません。修正申請で、実際に退勤した時刻を申請してください。
+            <%= safe_join(closed_days.map { |day| attendance_missing_clock_out_request_link(day, monthly) }, " ") %>
+          <% end %>
+        </p>
+      <% end %>
+      <% open_days.each do |day| %>
+        <p class="notice-box__body" data-testid="missing-clock-out-open">
+          <%= l(day.date, format: :short_with_day) %> は退勤の打刻がまだありません。
+          出勤から24時間以内のため、<%= attendance_clock_out_deadline(day.attendance) %> まではホームから退勤を打刻できます。
+          <%= link_to "ホームで退勤する", root_path, class: "notice-box__link" %>
+        </p>
+      <% end %>
+      <p class="notice-box__body">
+        退勤時刻が無いため、退勤漏れの日の時間は合計に含めていません（出勤日数には含めます）。
+      </p>
+    </section>
+  <% end %>
+
+  <% if (in_progress = monthly.in_progress_day) %>
+    <p class="history-progress section" data-testid="in-progress-note">
+      <%= l(in_progress.date, format: :short_with_day) %> の勤務は<%= in_progress.status == :on_break ? "休憩中" : "勤務中" %>です。
+      合計には表示した時点（<%= format_clock_time(monthly.now) %>）までの時間を含めています。
+    </p>
+  <% end %>
+
+  <%= render "attendances/days_table", monthly: monthly, admin_view: false %>
+
+  <p class="summary__note muted">
+    時間は分単位で計算します（打刻時刻の秒は切り捨て）。実働時間＝退勤−出勤−休憩合計。
+    打刻を忘れた・押し間違えた日は、その日の「修正申請」から正しい時刻を申請できます（承認されると記録が直ります）。
+  </p>
+</div>

@@ -1,0 +1,235 @@
+<% content_for :title, "シフト作成" %>
+<%# パターンの割り当ての後は同じ URL に戻るので、ページ全体を置き換えずに差分だけ更新し（morph）、表の横スクロールの位置も保つ %>
+<% turbo_refreshes_with method: :morph, scroll: :preserve %>
+<% board = @board %>
+<% brush = @brush %>
+<% status = board.status %>
+<% pending = board.pending_counts %>
+<% last_publication = board.last_publication %>
+
+<%# id は、パターンの割り当て後のページの更新（morph）で、表の要素を作り直さずに同じ要素として扱わせる（横スクロールの位置を保つ）ため %>
+<div class="page shift-page" id="shift-page">
+  <header class="page__header page__header--with-actions">
+    <div>
+      <p class="page__eyebrow">管理</p>
+      <h1 class="page__title">シフト作成</h1>
+      <p class="page__lead muted">週ごとに、従業員のシフト（勤務予定）を作って公開します。公開するまで、シフトとその変更は従業員に見えません。</p>
+    </div>
+    <div class="page__header-actions">
+      <%= link_to "シフトパターンを管理", admin_shift_patterns_path(week: board.week_start.iso8601), class: "button button--ghost button--small",
+                                                                                           data: { testid: "manage-patterns" } %>
+      <%= link_to "予実の確認（遅刻・早退・欠勤）", admin_shift_reports_path, class: "button button--ghost button--small",
+                                                                  data: { testid: "shift-reports-link" } %>
+    </div>
+  </header>
+
+  <section class="card section shift-toolbar" aria-labelledby="week-range" data-testid="shift-toolbar">
+    <div class="shift-toolbar__week">
+      <nav class="shift-week-nav" aria-label="週の移動">
+        <% if (previous_week = board.previous_week) %>
+          <%= link_to "← 前週", admin_shifts_path(week: previous_week.iso8601), class: "button button--ghost button--small", data: { testid: "previous-week" } %>
+        <% else %>
+          <span class="button button--ghost button--small is-disabled" aria-disabled="true" title="これより前の週は開けません">← 前週</span>
+        <% end %>
+        <h2 id="week-range" class="shift-toolbar__range" data-testid="week-range">
+          <%= l(board.week_start, format: :long) %>〜<%= l(board.week_end, format: :month_day_with_day) %>
+          <% if board.current_week? %><span class="badge badge--accent">今週</span><% end %>
+        </h2>
+        <% if (next_week = board.next_week) %>
+          <%= link_to "翌週 →", admin_shifts_path(week: next_week.iso8601), class: "button button--ghost button--small", data: { testid: "next-week" } %>
+        <% else %>
+          <span class="button button--ghost button--small is-disabled" aria-disabled="true" title="これより先の週は開けません">翌週 →</span>
+        <% end %>
+        <% unless board.current_week? %>
+          <%= link_to "今週", admin_shifts_path, class: "shift-week-nav__today" %>
+        <% end %>
+      </nav>
+      <%= form_with url: admin_shifts_path, method: :get, class: "shift-week-jump", data: { turbo_action: "advance" } do %>
+        <label for="week-jump" class="visually-hidden">表示する週の日付</label>
+        <% range = ShiftBoard.navigable_range(today: board.today) %>
+        <%= date_field_tag :week, board.week_start, id: "week-jump", class: "form__input shift-week-jump__input",
+                                                    min: range.begin, max: range.end + 6 %>
+        <%= submit_tag "この日の週を表示", name: nil, class: "button button--ghost button--small" %>
+      <% end %>
+    </div>
+
+    <div class="shift-toolbar__status">
+      <div class="shift-toolbar__state">
+        <%= shift_week_status_badge(status) %>
+        <span class="shift-toolbar__meta" data-testid="week-status-detail">
+          <% if pending.values.sum.positive? %>
+            未公開の変更：<strong><%= ShiftPublication.summary_of(**pending) %></strong>。
+          <% end %>
+          <% if last_publication %>
+            最終公開 <%= l(last_publication.published_at, format: :short) %>（<%= last_publication.published_by&.name || "—" %>）
+          <% elsif status != :empty %>
+            まだ公開していません。従業員には見えません。
+          <% else %>
+            この週のシフトはまだありません。
+          <% end %>
+        </span>
+      </div>
+      <div class="shift-toolbar__actions">
+        <%= button_to "前週をコピー", admin_shifts_copy_path, params: { week: board.week_start.iso8601 },
+                      class: "button button--ghost", form_class: "shift-toolbar__form",
+                      form: { data: { turbo_confirm: shift_copy_confirm(board), testid: "copy-form" } } %>
+        <% if pending.values.sum.positive? %>
+          <%= button_to "この週を公開", admin_shifts_publication_path, params: { week: board.week_start.iso8601 },
+                        class: "button button--primary", form_class: "shift-toolbar__form",
+                        form: { data: { turbo_confirm: shift_publish_confirm(board), testid: "publish-form" } } %>
+        <% else %>
+          <button type="button" class="button button--primary" disabled title="公開する変更がありません" data-testid="publish-disabled">この週を公開</button>
+        <% end %>
+      </div>
+    </div>
+  </section>
+
+  <section class="card section shift-brush" aria-labelledby="shift-brush-title" data-testid="shift-brush">
+    <h2 id="shift-brush-title" class="shift-brush__title">パターンで割り当て</h2>
+    <% if board.patterns.any? %>
+      <div class="shift-brush__items" role="group" aria-label="マスを押したときの動作">
+        <%= link_to "マスを開いて入力", admin_shifts_path(week: board.week_start.iso8601),
+                    class: [ "shift-brush__item", ("is-active" if brush.nil?) ], "aria-current": (brush.nil? ? "true" : nil),
+                    data: { testid: "brush-off" } %>
+        <% board.patterns.each do |pattern| %>
+          <%= link_to admin_shifts_path(week: board.week_start.iso8601, pattern: pattern.id),
+                      class: [ "shift-brush__item", ("is-active" if brush&.id == pattern.id) ], "aria-current": (brush&.id == pattern.id ? "true" : nil),
+                      data: { testid: "brush-pattern", pattern_id: pattern.id } do %>
+            <span class="shift-brush__name"><%= pattern.name %></span>
+            <span class="shift-brush__time"><%= Shift.range_label(pattern.start_minute, pattern.end_minute) %></span>
+          <% end %>
+        <% end %>
+      </div>
+      <p class="form__hint" data-testid="brush-hint">
+        <% if brush %>
+          マスを押すと「<strong><%= brush.name %></strong>」（<%= Shift.range_label(brush.start_minute, brush.end_minute) %>・<%= shift_break_label(brush.break_minutes) %>）を割り当てます（下書き）。
+          シフトがあるマスは置き換えます。全日の休暇の日には割り当てません。終わったら「マスを開いて入力」に戻してください。
+        <% else %>
+          パターンを選ぶと、マスを押すだけで、そのパターンの時間帯を割り当てられます。今はマスを押すと、時刻を入力する画面が開きます。
+        <% end %>
+      </p>
+    <% else %>
+      <p class="form__hint" data-testid="brush-empty">
+        よく使う時間帯（例：早番 9:00〜18:00、遅番 13:00〜22:00）を<%= link_to "シフトパターン", admin_shift_patterns_path(week: board.week_start.iso8601) %>に登録すると、
+        ここで選んで、マスを押すだけで割り当てられます。
+      </p>
+    <% end %>
+  </section>
+
+  <section class="section" aria-labelledby="shift-board-title" data-testid="shift-board">
+    <div class="shift-board__header">
+      <h2 id="shift-board-title" class="section__title">シフト表</h2>
+      <p class="shift-legend" aria-label="凡例">
+        <span class="badge badge--shift-draft">下書き</span>
+        <span class="badge badge--success">公開中</span>
+        <span class="badge badge--warning">変更・未公開</span>
+        <span class="badge badge--danger-soft">削除・未公開</span>
+        <span class="badge badge--leave">休暇</span>
+        <span class="shift-legend__note muted">「翌」は日付をまたいで翌日に終わるシフト</span>
+      </p>
+    </div>
+    <p class="shift-board__scroll-hint muted">表は横にスクロールできます（左端の従業員名は固定）。</p>
+    <div class="card card--flush shift-board__scroll" id="shift-board-scroll" data-controller="scroll-keeper" tabindex="0" role="region" aria-labelledby="shift-board-title" data-testid="shift-board-scroll">
+      <table class="shift-table" data-testid="shift-table">
+        <thead>
+          <tr>
+            <th scope="col" class="shift-table__name-head">従業員</th>
+            <% board.dates.each do |date| %>
+              <th scope="col" class="shift-table__day <%= shift_day_class(board, date) %>" data-date="<%= date.iso8601 %>" data-testid="shift-day-head">
+                <span class="shift-table__date"><%= l(date, format: :short) %></span><span class="shift-table__weekday">(<%= l(date, format: "%a") %>)</span>
+                <% if (holiday = board.holiday_name(date)) %>
+                  <span class="shift-table__holiday" title="国民の祝日（休日）" data-testid="holiday-name"><%= holiday %></span>
+                <% end %>
+                <span class="shift-table__count" data-testid="shift-day-count"><%= board.count_on(date) %>人</span>
+              </th>
+            <% end %>
+            <th scope="col" class="shift-table__total-head">週の実働</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% board.users.each do |user| %>
+            <tr id="shift_row_<%= user.id %>" data-testid="shift-row" data-user-id="<%= user.id %>">
+              <th scope="row" class="shift-table__name">
+                <span class="shift-table__user"><%= user.name %></span>
+                <span class="shift-table__employment muted"><%= user.employment_type_label %></span>
+              </th>
+              <% board.dates.each do |date| %>
+                <%= render "cell", cell: board.cell(user, date), board: board, brush: brush %>
+              <% end %>
+              <td class="shift-table__total" data-testid="shift-row-total"><%= format_duration(board.weekly_minutes(user)) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" class="shift-table__name">人数</th>
+            <% board.dates.each do |date| %>
+              <td class="shift-table__foot-count"><%= board.count_on(date) %>人</td>
+            <% end %>
+            <td class="shift-table__total"><%= board.total_count %>件</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="summary__note muted">
+      無効な従業員は表に出しません。人数は、その日にシフトがある有効な従業員の数です（削除・未公開のシフトは数えません）。
+      週の実働は、シフトの時間から休憩を引いた予定の合計です。
+    </p>
+  </section>
+
+  <% inactive_shifts = board.inactive_shifts %>
+  <% if inactive_shifts.any? %>
+    <section class="card section" aria-labelledby="inactive-shifts-title" data-testid="inactive-shifts">
+      <h2 id="inactive-shifts-title" class="card__title card__title--small">無効な従業員のシフト（表には出していません）</h2>
+      <p class="card__lead">無効にした従業員の、この週のシフトです。人数・前週のコピーには含めません。不要なら開いて削除してください。</p>
+      <ul class="shift-inactive__list">
+        <% inactive_shifts.each do |shift| %>
+          <li data-testid="inactive-shift">
+            <%= shift.user.name %> さん・<%= l(shift.work_date, format: :short_with_day) %>
+            <% if shift.live? %>
+              <%= link_to shift.range_label, edit_admin_shift_path(shift) %>
+            <% else %>
+              <s><%= shift.published_range_label %></s>
+            <% end %>
+            <%= shift_state_badge(shift.state) %>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <section class="section" aria-labelledby="publications-title" data-testid="shift-publications">
+    <h2 id="publications-title" class="section__title">この週の公開の履歴</h2>
+    <% if board.publications.any? %>
+      <div class="card card--flush">
+        <table class="table table--responsive">
+          <thead>
+            <tr>
+              <th scope="col">公開した日時</th>
+              <th scope="col">公開した人</th>
+              <th scope="col">従業員に反映した内容</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% board.publications.each_with_index do |publication, index| %>
+              <tr data-testid="shift-publication">
+                <td data-label="日時" class="table__primary"><%= l(publication.published_at, format: :short) %></td>
+                <td data-label="公開した人"><%= publication.published_by&.name || "—" %></td>
+                <td data-label="内容">
+                  <%= publication.summary %>
+                  <% if index < board.publications.size - 1 || publication.changed_count.positive? || publication.removed_count.positive? %>
+                    <span class="badge badge--outline">公開後の変更を反映</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <div class="card empty-state" data-testid="shift-publications-empty">
+        <p>この週はまだ公開していません。</p>
+      </div>
+    <% end %>
+  </section>
+</div>

@@ -1,0 +1,53 @@
+<%# 従業員の登録・編集フォーム。password: true のときは初期パスワード欄を、self_edit: true のときは役割を変更不可で出す %>
+<%= form_with model: employee, url: url, class: "form" do |f| %>
+  <%= render "shared/form_errors", record: employee %>
+
+  <div class="form__grid">
+    <div class="form__field">
+      <%= f.label :name, class: "form__label" do %>氏名 <span class="form__required">必須</span><% end %>
+      <%= f.text_field :name, class: "form__input", required: true, maxlength: 50, autocomplete: "off" %>
+    </div>
+
+    <div class="form__field">
+      <%= f.label :email, class: "form__label" do %>メールアドレス <span class="form__required">必須</span><% end %>
+      <%= f.email_field :email, class: "form__input", required: true, autocomplete: "off", aria: { describedby: "email-hint" } %>
+      <p class="form__hint" id="email-hint">ログインに使います。</p>
+    </div>
+
+    <% if password %>
+      <div class="form__field">
+        <%= f.label :password, class: "form__label" do %>初期パスワード <span class="form__required">必須</span><% end %>
+        <%= f.password_field :password, class: "form__input", required: true, minlength: User::PASSWORD_MIN_LENGTH,
+                                        autocomplete: "new-password", aria: { describedby: "password-hint" } %>
+        <p class="form__hint" id="password-hint"><%= User::PASSWORD_MIN_LENGTH %>文字以上。本人に伝え、ログイン後に変更してもらってください。</p>
+      </div>
+    <% end %>
+
+    <div class="form__field">
+      <%= f.label :hired_on, class: "form__label" do %>入社日 <span class="form__required">必須</span><% end %>
+      <%= f.date_field :hired_on, class: "form__input", required: true %>
+    </div>
+
+    <div class="form__field">
+      <%= f.label :role, class: "form__label" %>
+      <%= f.select :role, User.enum_options(:role), {}, class: "form__input", disabled: self_edit, aria: { describedby: "role-hint" } %>
+      <p class="form__hint" id="role-hint">
+        <% if self_edit %>
+          ご自身の役割は変更できません（管理者がいなくなるのを防ぐため）。
+        <% else %>
+          管理者は「管理」メニュー（従業員管理など）を使えます。
+        <% end %>
+      </p>
+    </div>
+
+    <div class="form__field">
+      <%= f.label :employment_type, class: "form__label" %>
+      <%= f.select :employment_type, User.enum_options(:employment_type), {}, class: "form__input" %>
+    </div>
+  </div>
+
+  <div class="form__actions">
+    <%= f.submit submit_label, class: "button button--primary" %>
+    <%= link_to "キャンセル", admin_employees_path, class: "button button--ghost" %>
+  </div>
+<% end %>

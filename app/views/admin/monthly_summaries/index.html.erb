@@ -1,0 +1,259 @@
+<% summary = @summary %>
+<% period = summary.period %>
+<% rules = summary.effective_rules %>
+<% rows = summary.rows %>
+<% content_for :title, "月次集計（#{period.label}）" %>
+
+<div class="page">
+  <header class="page__header page__header--with-actions history-header">
+    <div>
+      <p class="page__eyebrow">管理</p>
+      <h1 class="page__title" data-testid="period-label">
+        月次集計：<%= period.label %>
+        <% if period == @current_period %><span class="badge badge--accent">今<%= period.unit %></span><% end %>
+        <%= period_closing_badge(period) %>
+      </h1>
+      <p class="history-header__range muted">
+        <span data-testid="period-range"><%= l(period.start_date, format: :short_with_day) %>〜<%= l(period.end_date, format: :short_with_day) %></span>
+        <%= period_basis_note(period) %>
+      </p>
+    </div>
+    <%= render "admin/shift_reports/month_nav", period: period, current_period: @current_period,
+                                                path_builder: ->(month) { admin_monthly_summaries_path({ month: month }.compact) } %>
+  </header>
+
+  <% if period.adjusted? %>
+    <p class="history-progress section" data-testid="adjusted-period-note">
+      締め日どおりなら <%= l(period.nominal_start_date, format: :short_with_day) %>〜<%= l(period.nominal_end_date, format: :short_with_day) %> ですが、
+      となりの締め済みの月度と重なったりすき間が空いたりしないように、<%= l(period.start_date, format: :short_with_day) %>〜<%= l(period.end_date, format: :short_with_day) %> にしています。
+    </p>
+  <% end %>
+
+  <% pending = summary.pending_requests %>
+  <% missing_count = summary.missing_clock_out_count %>
+  <% if summary.closed? %>
+    <% closing = summary.closing %>
+    <section class="notice-box notice-box--closed section" data-testid="closing-card">
+      <p class="notice-box__title"><%= period.label %>は締め済みです（<%= monthly_closing_by_label(closing) %>）</p>
+      <p class="notice-box__body">
+        集計値と日別の値は、締めた時点の勤務ルール（1日の所定労働時間 <%= format_duration(closing.scheduled_work_minutes) %>・<%= WorkRuleSetting.closing_day_label(closing.closing_day) %>締め・警告ライン <%= closing.overtime_warning_hours %>時間）で固定しています。
+        この月度の勤怠は、打刻・修正申請・休暇の申請・申請の承認・管理者の直接修正・休暇の直接取消のどれでも変更できません。
+      </p>
+      <% if pending.any? %>
+        <p class="notice-box__body" data-testid="closed-pending-note">
+          承認待ちのまま締めた申請が <strong><%= pending.size %>件</strong> あります。締め済みの月度にかかるため承認できません（却下はできます）。
+          <%= link_to "承認の一覧へ", admin_approval_requests_path, class: "notice-box__link" %>
+        </p>
+      <% end %>
+      <%= button_to "締めを解除する", admin_monthly_closing_path, method: :delete, params: { month: period.to_param },
+                    class: "button button--ghost button--small", form_class: "closing-card__form",
+                    data: { turbo_confirm: "#{period.label}の締めを解除しますか？解除すると、この月度は今の勤務ルール（所定労働時間 #{format_duration(@rules.scheduled_work_minutes)}・#{WorkRuleSetting.closing_day_label(@rules.closing_day)}締め）で期間と値を計算し直し、勤怠の修正や申請の承認ができるようになります。解除した記録（誰が・いつ）は残ります。",
+                            turbo_submits_with: "解除中…", testid: "reopen-button" } %>
+    </section>
+  <% else %>
+    <section class="card section closing-card" aria-labelledby="closing-title" data-testid="closing-card">
+      <h2 id="closing-title" class="card__title card__title--small">締め</h2>
+      <% if summary.warnings? %>
+        <div class="notice-box notice-box--warning" role="note" data-testid="closing-warnings">
+          <p class="notice-box__title">締める前に確認してください</p>
+          <ul class="notice-box__list">
+            <% if missing_count.positive? %>
+              <li data-testid="warning-missing">退勤漏れ <strong><%= missing_count %>件</strong>（退勤の打刻が無い勤務。退勤漏れの日の時間は集計に入りません）</li>
+            <% end %>
+            <% if pending.any? %>
+              <li data-testid="warning-pending">
+                承認待ちの申請 <strong><%= pending.size %>件</strong>
+                （<%= summary.pending_counts_by_kind.map { |kind, count| "#{kind} #{count}件" }.join("・") %>。締めた後は承認できなくなります）
+                <%= link_to "承認の一覧へ", admin_approval_requests_path, class: "notice-box__link" %>
+              </li>
+            <% end %>
+          </ul>
+          <% if pending.any? %>
+            <ul class="closing-card__pending" data-testid="pending-list">
+              <% pending.first(5).each do |request| %>
+                <li><%= link_to "#{request.user.name}・#{request.kind_label}・#{request.target_label}", admin_approval_request_path(request) %></li>
+              <% end %>
+              <% if pending.size > 5 %><li class="muted">ほか <%= pending.size - 5 %>件</li><% end %>
+            </ul>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="request-actions__note" data-testid="closing-ready">退勤漏れも、承認待ちの申請もありません。</p>
+      <% end %>
+
+      <% if period.ended?(today: @now.to_date) %>
+        <% warning_text = summary.warnings? ? "退勤漏れ #{missing_count}件・承認待ちの申請 #{pending.size}件 が残っています。" : "" %>
+        <p class="form__hint">締めると、この月度の勤怠は変更できなくなり、集計値と日別の値は今の勤務ルール（1日の所定労働時間 <%= format_duration(rules.scheduled_work_minutes) %>）で固定されます。締めた後でも解除できます。</p>
+        <%= button_to "#{period.label}を締める", admin_monthly_closing_path, method: :post, params: { month: period.to_param },
+                      class: "button button--primary", form_class: "closing-card__form",
+                      data: { turbo_confirm: "#{period.label}（#{l(period.start_date, format: :short_with_day)}〜#{l(period.end_date, format: :short_with_day)}）を締めますか？#{warning_text}締めると、この月度の勤怠は、打刻・修正申請・休暇の申請・申請の承認・管理者の直接修正・休暇の直接取消のどれでも変更できなくなります。",
+                              turbo_submits_with: "締めています…", testid: "close-button" } %>
+      <% else %>
+        <p class="request-actions__note muted" data-testid="closing-not-ended">
+          この月度はまだ終わっていないため、締められません（<%= l(period.end_date + 1, format: :short_with_day) %>以降に締められます）。
+        </p>
+      <% end %>
+    </section>
+  <% end %>
+
+  <section class="card section" aria-labelledby="summary-totals-title" data-testid="summary-totals">
+    <h2 id="summary-totals-title" class="card__title">この<%= period.unit %>の合計（<%= rows.size %>名）</h2>
+    <dl class="summary">
+      <div class="summary__item">
+        <dt class="summary__label">総実働時間</dt>
+        <dd class="summary__value" data-testid="sum-worked"><%= format_duration(summary.total(:total_worked_minutes)) %></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">残業時間</dt>
+        <dd class="summary__value" data-testid="sum-overtime"><%= format_duration(summary.total(:total_overtime_minutes)) %></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">深夜時間</dt>
+        <dd class="summary__value" data-testid="sum-night"><%= format_duration(summary.total(:total_night_minutes)) %></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">休日の勤務</dt>
+        <dd class="summary__value" data-testid="sum-holiday"><%= format_duration(summary.total(:total_holiday_worked_minutes)) %></dd>
+      </div>
+    </dl>
+  </section>
+
+  <%= render "csv_export", summary: summary %>
+
+  <section class="section" aria-labelledby="summary-table-title">
+    <h2 id="summary-table-title" class="section__title">従業員ごとの集計</h2>
+    <div class="card card--flush">
+      <table class="table table--responsive monthly-summary-table" data-testid="monthly-summary-table">
+        <thead>
+          <tr>
+            <th scope="col">氏名</th>
+            <th scope="col" class="table__number">出勤日数</th>
+            <th scope="col" class="table__number">総実働</th>
+            <th scope="col" class="table__number">残業</th>
+            <th scope="col" class="table__number">深夜</th>
+            <th scope="col" class="table__number">休日勤務</th>
+            <th scope="col" class="table__number">有給取得</th>
+            <th scope="col" class="table__number">遅刻</th>
+            <th scope="col" class="table__number">早退</th>
+            <th scope="col" class="table__number">欠勤</th>
+            <th scope="col"><span class="visually-hidden">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.each do |row| %>
+            <tr data-testid="monthly-summary-row" data-user-id="<%= row.user.id %>">
+              <td data-label="氏名" class="table__primary">
+                <%= row.user.name %>
+                <% unless row.user.active? %><span class="badge badge--muted">無効</span><% end %>
+                <% if row.missing_clock_out_count.positive? %>
+                  <span class="badge badge--danger" data-testid="row-missing">退勤漏れ <%= row.missing_clock_out_count %></span>
+                <% end %>
+              </td>
+              <td data-label="出勤日数" class="table__number" data-column="working-days"><%= row.working_days_count %>日</td>
+              <td data-label="総実働" class="table__number" data-column="worked"><%= monthly_minutes_cell(row.total_worked_minutes) %></td>
+              <td data-label="残業" class="table__number" data-column="overtime">
+                <span class="<%= "shift-report__count--alert" if rules.overtime_warning?(row.total_overtime_minutes) %>"><%= monthly_minutes_cell(row.total_overtime_minutes) %></span>
+              </td>
+              <td data-label="深夜" class="table__number" data-column="night"><%= monthly_minutes_cell(row.total_night_minutes) %></td>
+              <td data-label="休日勤務" class="table__number" data-column="holiday"><%= monthly_minutes_cell(row.total_holiday_worked_minutes) %></td>
+              <td data-label="有給取得" class="table__number" data-column="paid-leave"><%= monthly_days_cell(row.paid_leave_days) %></td>
+              <td data-label="遅刻" class="table__number" data-column="late"><%= monthly_count_cell(row.late_count) %></td>
+              <td data-label="早退" class="table__number" data-column="early-leave"><%= monthly_count_cell(row.early_leave_count) %></td>
+              <td data-label="欠勤" class="table__number" data-column="absent">
+                <%= monthly_count_cell(row.absence_count) %>
+                <% if row.absence_leave_days.positive? %>
+                  <span class="monthly-summary-table__sub" data-testid="absence-leave-days" title="種類が「欠勤」の承認済み休暇の日数。欠勤の回数には含めていません">ほか欠勤の休暇 <%= LeaveRequest.format_days(row.absence_leave_days) %></span>
+                <% end %>
+              </td>
+              <td class="table__actions">
+                <%= link_to "日別に見る", admin_monthly_summary_path(row.user, month: period.to_param),
+                            class: "button button--ghost button--small", "aria-label": "#{row.user.name} さんの日別の勤怠を見る",
+                            data: { testid: "monthly-detail-link" } %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <div class="summary__note muted" data-testid="summary-definitions">
+      <p>
+        時間は「時:分」。残業＝1日の実働のうち所定労働時間（<%= format_duration(rules.scheduled_work_minutes) %>）を超えた部分。深夜＝22:00〜翌5:00 に働いた時間。
+        休日勤務＝勤務日（出勤した日）が土日・祝日の勤務の実働。日付をまたいだ勤務は出勤した日に数えます。退勤漏れの日の時間は数えません。
+        残業が警告ライン（<%= rules.overtime_warning_hours %>時間）を超えた人は赤で示します。
+      </p>
+      <p>
+        有給取得＝この<%= period.unit %>の日に取った有給休暇の日数（承認した日ではなく、休んだ日で数えます。土日・祝日は数えず、半休は 0.5日）。
+        遅刻・早退・欠勤は、公開済みのシフトと打刻を比べた回数（許容範囲は1分）です。
+        <strong>欠勤の回数には、種類が「欠勤」の承認済み休暇を含めていません</strong>（シフトがあるのに打刻も休暇も無い日だけを数えます）。「欠勤」の休暇がある人は、欠勤の欄に「ほか欠勤の休暇 N日」と添えます。
+      </p>
+      <p>
+        表には有効なユーザー全員と、この<%= period.unit %>に勤怠・公開済みのシフト・承認済みの休暇がある無効なユーザーを出します。
+        <% if summary.closed? %>締め済みの月度は、締めた時点の顔ぶれと値のままです。<% end %>
+      </p>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="month-list-title">
+    <h2 id="month-list-title" class="section__title">月度の一覧</h2>
+    <div class="card card--flush">
+      <table class="table table--responsive monthly-list-table" data-testid="month-list">
+        <thead>
+          <tr>
+            <th scope="col">月度</th>
+            <th scope="col">期間</th>
+            <th scope="col">状態</th>
+            <th scope="col">締め</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @month_list.each do |item| %>
+            <tr data-testid="month-list-row" data-month="<%= item.to_param %>" class="<%= "monthly-list-table__row--current" if item == period %>">
+              <td data-label="月度" class="table__primary">
+                <%= link_to item.label, admin_monthly_summaries_path(month: item.to_param) %>
+                <% if item == @current_period %><span class="badge badge--accent">今<%= item.unit %></span><% end %>
+              </td>
+              <td data-label="期間" class="nowrap"><%= l(item.start_date, format: :short_with_day) %>〜<%= l(item.end_date, format: :short_with_day) %></td>
+              <td data-label="状態"><%= period_closing_badge(item) %></td>
+              <td data-label="締め"><%= item.closed? ? monthly_closing_by_label(item.closing) : "—" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="closing-history-title">
+    <h2 id="closing-history-title" class="section__title">締めと解除の履歴</h2>
+    <% if @closing_history.any? %>
+      <div class="card card--flush">
+        <table class="table table--responsive closing-history-table" data-testid="closing-history">
+          <thead>
+            <tr>
+              <th scope="col">月度</th>
+              <th scope="col">期間</th>
+              <th scope="col">締め</th>
+              <th scope="col">解除</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @closing_history.each do |closing| %>
+              <tr data-testid="closing-history-row" data-closing-id="<%= closing.id %>">
+                <td data-label="月度" class="table__primary">
+                  <%= link_to closing.label, admin_monthly_summaries_path(month: closing.to_param_month) %>
+                  <% if closing.active? %><span class="badge badge--closed">締め済み</span><% else %><span class="badge badge--muted">解除済み</span><% end %>
+                </td>
+                <td data-label="期間" class="nowrap"><%= closing.range_label %></td>
+                <td data-label="締め"><%= closing.closed_by&.name %>（<%= l(closing.closed_at, format: :short) %>）・所定 <%= format_duration(closing.scheduled_work_minutes) %></td>
+                <td data-label="解除" data-column="reopened">
+                  <% if closing.reopened_at %><%= closing.reopened_by&.name %>（<%= l(closing.reopened_at, format: :short) %>）<% else %><span class="muted">—</span><% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <div class="card empty-state"><p>まだ締めた月度はありません。</p></div>
+    <% end %>
+  </section>
+</div>

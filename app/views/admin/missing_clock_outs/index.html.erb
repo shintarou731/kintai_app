@@ -1,0 +1,67 @@
+<% list = @list %>
+<% content_for :title, "退勤漏れ" %>
+<% content_for :head do %><meta name="turbo-cache-control" content="no-cache"><% end %>
+
+<div class="page">
+  <%= link_to "← ダッシュボードに戻る", admin_dashboard_path, class: "back-link" %>
+  <header class="page__header">
+    <p class="page__eyebrow">管理</p>
+    <h1 class="page__title">前日以前の退勤漏れ <span class="badge <%= list.any? ? "badge--danger" : "badge--muted" %>" data-testid="missing-total"><%= list.count %>件</span></h1>
+    <p class="page__lead muted">
+      退勤の打刻が無いまま、勤務日（出勤した日）が過ぎた勤務です。勤怠履歴の「退勤漏れ」と同じ数え方です。
+      本人が修正申請を出し、承認すると直ります。出勤から24時間以内の勤務は、本人がホーム画面から退勤することもできます。
+    </p>
+  </header>
+
+  <% if list.any? %>
+    <p class="muted list-caption">勤務日の新しい順に並んでいます。</p>
+    <div class="card card--flush">
+      <table class="table table--responsive missing-clock-outs-table" data-testid="missing-clock-outs-table">
+        <thead>
+          <tr>
+            <th scope="col">氏名</th>
+            <th scope="col">勤務日</th>
+            <th scope="col">出勤</th>
+            <th scope="col">状況</th>
+            <th scope="col">修正申請</th>
+            <th scope="col"><span class="visually-hidden">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% list.items.each do |item| %>
+            <tr data-testid="missing-clock-out-row" data-user-id="<%= item.user.id %>" data-date="<%= item.work_date.iso8601 %>">
+              <td data-label="氏名" class="table__primary">
+                <%= item.user.name %>
+                <% unless item.user.active? %><span class="badge badge--muted">無効</span><% end %>
+              </td>
+              <td data-label="勤務日" class="nowrap"><%= l(item.work_date, format: :short_with_day) %></td>
+              <td data-label="出勤"><%= format_clock_time(item.clock_in_at) %></td>
+              <td data-label="状況" data-column="status">
+                <% if item.clock_out_open? %>
+                  <span class="badge badge--warning" data-testid="missing-open">本人が退勤できます（〜<%= attendance_clock_out_deadline(item.attendance) %>）</span>
+                <% else %>
+                  <span class="badge badge--danger-soft" data-testid="missing-closed">修正が必要</span>
+                <% end %>
+              </td>
+              <td data-label="修正申請" data-column="correction">
+                <% if (correction = item.pending_correction) %>
+                  <%= link_to "申請中（承認待ち）", admin_approval_request_path(correction), data: { testid: "missing-pending-link" } %>
+                <% else %>
+                  <span class="muted">まだありません</span>
+                <% end %>
+              </td>
+              <td class="table__actions">
+                <%= link_to "その月を見る", admin_shift_report_path(item.user, month: @rules.period_containing(item.work_date).to_param),
+                            class: "button button--ghost button--small", "aria-label": "#{item.user.name} さんのその月の予定と実績を見る" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card empty-state" data-testid="missing-clock-outs-empty">
+      <p>前日以前の退勤漏れはありません。</p>
+    </div>
+  <% end %>
+</div>

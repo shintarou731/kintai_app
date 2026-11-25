@@ -1,0 +1,155 @@
+<% leave = @leave %>
+<% today = Date.current %>
+<% content_for :title, "休暇" %>
+
+<div class="page">
+  <header class="page__header">
+    <p class="page__eyebrow">休暇</p>
+    <h1 class="page__title">休暇</h1>
+    <p class="page__lead muted">休暇の申請と、あなたの休暇の一覧です。承認されると、勤怠履歴の該当日に「有給（全日）」のように表示されます。</p>
+  </header>
+
+  <%= render "paid_leaves/summary", account: @paid_leave %>
+
+  <section class="card section" aria-labelledby="leave-form-title">
+    <h2 id="leave-form-title" class="card__title">休暇を申請する</h2>
+
+    <%= form_with model: leave, url: leave_requests_path, class: "form leave-form",
+                  data: { controller: "leave-form", testid: "leave-form",
+                          leave_form_holidays_value: leave_form_holidays(today).to_json,
+                          leave_form_min_date_value: (today - LeaveRequest::SUBMITTABLE_SPAN).iso8601,
+                          leave_form_max_date_value: (today + LeaveRequest::SUBMITTABLE_SPAN).iso8601,
+                          leave_form_paid_requestable_value: @paid_leave.requestable.to_f } do |f| %>
+      <%= render "shared/form_errors", record: leave %>
+
+      <fieldset class="choice-group" data-testid="leave-type-choices">
+        <legend class="form__label">休暇の種類 <span class="form__required">必須</span></legend>
+        <div class="choice-group__items">
+          <% LeaveRequest.leave_type_options.each do |label, value| %>
+            <label class="choice">
+              <%= f.radio_button :leave_type, value, class: "choice__input",
+                                                     data: { action: "leave-form#sync", leave_form_target: "leaveType" } %>
+              <span class="choice__label"><%= label %></span>
+            </label>
+          <% end %>
+        </div>
+      </fieldset>
+
+      <fieldset class="choice-group" data-testid="day-part-choices">
+        <legend class="form__label">区分 <span class="form__required">必須</span></legend>
+        <div class="choice-group__items">
+          <% LeaveRequest.day_part_options.each do |label, value| %>
+            <label class="choice">
+              <%= f.radio_button :day_part, value, class: "choice__input",
+                                                   data: { action: "leave-form#sync", leave_form_target: "dayPart" } %>
+              <span class="choice__label"><%= label %></span>
+            </label>
+          <% end %>
+        </div>
+        <p class="form__hint">半休（午前・午後）は1日だけ指定できます。午前と午後の両方を休む場合は「全日」を選んでください。</p>
+      </fieldset>
+
+      <div class="form__field">
+        <span class="form__label" id="leave-period-label">期間 <span class="form__required">必須</span></span>
+        <div class="date-range" role="group" aria-labelledby="leave-period-label">
+          <div class="date-range__field">
+            <%= f.label :target_date, "開始日", class: "date-range__caption" %>
+            <%= f.date_field :target_date, class: "form__input", required: true,
+                                           min: today - LeaveRequest::SUBMITTABLE_SPAN, max: today + LeaveRequest::SUBMITTABLE_SPAN,
+                                           data: { action: "leave-form#sync", leave_form_target: "start" } %>
+          </div>
+          <span class="date-range__separator" aria-hidden="true">〜</span>
+          <div class="date-range__field">
+            <%= f.label :end_date, "終了日", class: "date-range__caption" %>
+            <%= f.date_field :end_date, class: "form__input", max: today + LeaveRequest::SUBMITTABLE_SPAN,
+                                        data: { action: "leave-form#sync", leave_form_target: "end" } %>
+          </div>
+        </div>
+        <p class="form__hint">
+          1日だけ休む場合は、開始日と終了日を同じ日にします（終了日が空欄なら開始日と同じ日になります）。
+          申請できるのは <%= l(today - LeaveRequest::SUBMITTABLE_SPAN) %>〜<%= l(today + LeaveRequest::SUBMITTABLE_SPAN) %> の日付です（過去の日付も1年前まで申請できます）。1回の申請は<%= LeaveRequest::MAX_PERIOD_DAYS %>日までです。
+        </p>
+        <p class="leave-form__days" aria-live="polite" data-leave-form-target="days" data-testid="leave-days-preview"></p>
+      </div>
+
+      <div class="form__field">
+        <%= f.label :reason, class: "form__label" do %>理由 <span class="form__required">必須</span><% end %>
+        <%= f.text_area :reason, class: "form__input form__textarea", rows: 3, required: true,
+                                 maxlength: ApprovalRequest::REASON_MAX_LENGTH,
+                                 placeholder: "例：私用のため。／通院のため午前中お休みします。" %>
+        <p class="form__hint">管理者が承認・却下の判断に使います（<%= ApprovalRequest::REASON_MAX_LENGTH %>文字まで）。</p>
+      </div>
+
+      <div class="form__actions">
+        <%= f.submit "申請する", class: "button button--primary", data: { turbo_submits_with: "申請中…" } %>
+      </div>
+      <p class="form__hint">
+        既に承認済み・承認待ちの休暇と期間が重なる日は申請できません。日数は休日（土日・祝日）を除いて数えます（半休は0.5日）。有給休暇は、休日だけの期間では申請できません。
+        有給休暇は、申請できる残り（承認待ちの有給も差し引いた残日数）までしか申請できません。
+        承認済みの休暇を取りやめたいときは、開始日の前日までに、休暇の詳細から「取消申請」を出してください。開始日が今日または過去の休暇の取消は、管理者に依頼してください。
+      </p>
+    <% end %>
+  </section>
+
+  <nav class="tabs section" aria-label="表示する休暇の切り替え">
+    <% { "upcoming" => "これからの休暇", "all" => "すべて" }.each do |status, label| %>
+      <%= link_to leave_requests_path(status: (status == "upcoming" ? nil : status)),
+                  class: [ "tabs__item", ("is-active" if @filter == status) ],
+                  "aria-current": (@filter == status ? "page" : nil), data: { testid: "leave-filter-#{status}" } do %>
+        <%= label %> <span class="tabs__count"><%= @counts[status] %></span>
+      <% end %>
+    <% end %>
+  </nav>
+
+  <% if @leaves.any? %>
+    <p class="muted list-caption">
+      <%= @filter == "upcoming" ? "終了日が今日以降の、承認待ち・承認済みの休暇を、開始日の早い順に並べています（取り下げ・却下・取消済みは「すべて」に表示します）。" : "開始日の新しい順に並べています。" %>
+    </p>
+    <div class="card card--flush">
+      <table class="table table--responsive leaves-table" data-testid="leaves-table">
+        <thead>
+          <tr>
+            <th scope="col">期間</th>
+            <th scope="col">種類</th>
+            <th scope="col">区分</th>
+            <th scope="col">日数</th>
+            <th scope="col">状態</th>
+            <th scope="col"><span class="visually-hidden">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @leaves.each do |item| %>
+            <tr id="<%= dom_id(item) %>" data-testid="leave-row" class="<%= "is-highlighted" if item.id == @highlight_id %>">
+              <td data-label="期間" class="table__primary" data-column="period"><%= item.target_label %></td>
+              <td data-label="種類" data-column="leave-type"><%= item.leave_type_label %></td>
+              <td data-label="区分" data-column="day-part"><%= item.day_part_label %></td>
+              <td data-label="日数" data-column="days"><%= leave_days_label(item) %></td>
+              <td data-label="状態" data-column="status" class="requests-table__status">
+                <div>
+                  <%= approval_request_status_badge(item) %>
+                  <% if item.effective? && item.pending_cancellation %>
+                    <span class="badge badge--warning" data-testid="leave-cancellation-pending">取消申請中</span>
+                  <% end %>
+                  <% if item.processed? %>
+                    <span class="requests-table__review"><%= approval_request_reviewer_label(item) %></span>
+                  <% end %>
+                </div>
+              </td>
+              <td class="table__actions">
+                <%= link_to "詳細", approval_request_path(item), class: "button button--ghost button--small",
+                                                             "aria-label": "#{item.description}の詳細" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card empty-state" data-testid="leaves-empty">
+      <p><%= @filter == "upcoming" ? "これからの休暇はありません。" : "まだ休暇の申請はありません。" %></p>
+    </div>
+  <% end %>
+  <p class="summary__note muted">承認待ちの休暇の取り下げ・承認済みの休暇の取消申請は、各休暇の「詳細」から行えます。申請の結果は「申請」画面にも表示されます。</p>
+
+  <%= render "paid_leaves/history", account: @paid_leave %>
+</div>

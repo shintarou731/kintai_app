@@ -1,0 +1,12 @@
+<% content_for :title, "従業員を追加" %>
+
+<div class="page page--narrow">
+  <%= link_to "← 従業員一覧に戻る", admin_employees_path, class: "back-link" %>
+  <header class="page__header">
+    <h1 class="page__title">従業員を追加</h1>
+  </header>
+
+  <section class="card">
+    <%= render "form", employee: @employee, url: admin_employees_path, password: true, self_edit: false, submit_label: "登録する" %>
+  </section>
+</div>

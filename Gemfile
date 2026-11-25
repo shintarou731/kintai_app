@@ -23,10 +23,16 @@ gem "jbuilder"
 # gem "kredis"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
-# gem "bcrypt", "~> 3.1.7"
+gem "bcrypt", "~> 3.1.7"
+
+# CSV の書き出し（F15）。Ruby 3.4 から標準添付ではなくなったため明示する [https://github.com/ruby/csv]
+gem "csv", "~> 3.3"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
+
+# 日本の国民の祝日（振替休日・国民の休日を含む）の判定。祝日データを gem の中に持つので外部の API にはつながない
+gem "holiday_jp", "~> 0.8.1"
 
 # Reduces boot times through caching; required in config/boot.rb
 gem "bootsnap", require: false

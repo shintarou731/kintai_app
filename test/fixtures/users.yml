@@ -1,0 +1,27 @@
+# パスワードは全員 "password123"
+admin:
+  name: 管理 太郎
+  email: admin@example.com
+  password_digest: <%= BCrypt::Password.create("password123") %>
+  role: admin
+  employment_type: full_time
+  hired_on: 2020-04-01
+  active: true
+
+employee:
+  name: 従業 花子
+  email: hanako@example.com
+  password_digest: <%= BCrypt::Password.create("password123") %>
+  role: employee
+  employment_type: part_time
+  hired_on: 2024-10-01
+  active: true
+
+inactive_employee:
+  name: 退職 次郎
+  email: jiro@example.com
+  password_digest: <%= BCrypt::Password.create("password123") %>
+  role: employee
+  employment_type: full_time
+  hired_on: 2019-04-01
+  active: false

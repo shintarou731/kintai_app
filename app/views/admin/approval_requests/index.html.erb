@@ -1,0 +1,112 @@
+<% content_for :title, "承認" %>
+
+<div class="page">
+  <header class="page__header">
+    <p class="page__eyebrow">管理</p>
+    <h1 class="page__title">承認</h1>
+    <p class="page__lead muted">従業員から届いた申請です。詳細で内容を確認して、承認・却下してください。承認すると申請内容が勤怠記録に反映されます。</p>
+  </header>
+
+  <% own_pending = @filter == "pending" && @requests.any? { |item| item.user_id == current_user.id } %>
+  <% if own_pending %>
+    <div class="notice-box notice-box--info section" data-testid="self-review-summary">
+      <% if @active_admin_count >= 2 %>
+        <p class="notice-box__body">「あなたの申請」は、他の管理者が処理します（有効な管理者が<%= @active_admin_count %>名いるため、ご自身では承認・却下できません）。ナビの件数には、あなたが処理できる申請（<%= pending_approval_count %>件）だけを数えています。</p>
+      <% else %>
+        <p class="notice-box__body">管理者が1名のため、「あなたの申請」もご自身で承認・却下できます。</p>
+      <% end %>
+    </div>
+  <% end %>
+
+  <nav class="tabs section" aria-label="状態で絞り込み">
+    <% { "pending" => "承認待ち", "processed" => "処理済み" }.each do |status, label| %>
+      <%= link_to admin_approval_requests_path(status: (status == "pending" ? nil : status)),
+                  class: [ "tabs__item", ("is-active" if @filter == status) ],
+                  "aria-current": (@filter == status ? "page" : nil), data: { testid: "filter-#{status}" } do %>
+        <%= label %> <span class="tabs__count"><%= @counts[status] %></span>
+      <% end %>
+    <% end %>
+  </nav>
+
+  <% if @requests.any? %>
+    <p class="muted list-caption">
+      <%= @filter == "pending" ? "申請日の古い順に並んでいます。" : "処理日時の新しい順に並んでいます（管理者が直接取り消した休暇は、取り消した日時で並びます）。" %>
+    </p>
+    <div class="card card--flush">
+      <table class="table table--responsive approvals-table" data-testid="approvals-table">
+        <thead>
+          <tr>
+            <th scope="col">申請者</th>
+            <th scope="col">種類</th>
+            <th scope="col">対象日</th>
+            <th scope="col">内容</th>
+            <th scope="col">申請日</th>
+            <% if @filter == "processed" %>
+              <th scope="col">結果</th>
+              <th scope="col">処理した管理者</th>
+              <th scope="col">処理日時</th>
+            <% end %>
+            <th scope="col"><span class="visually-hidden">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @requests.each do |approval_request| %>
+            <% own = approval_request.user_id == current_user.id %>
+            <tr id="<%= dom_id(approval_request) %>" data-testid="approval-row" class="<%= "is-own" if own %>">
+              <td data-label="申請者" class="table__primary" data-column="applicant">
+                <%= approval_request.user.name %>
+                <% if own %><span class="badge badge--outline" data-testid="own-request">あなたの申請</span><% end %>
+              </td>
+              <td data-label="種類" data-column="kind"><%= approval_request.kind_label %></td>
+              <td data-label="対象日" data-column="target-date"><%= approval_request_target_label(approval_request) %></td>
+              <td data-label="内容" data-column="summary" class="table__wrap requests-table__summary"><%= approval_request_summary(approval_request) %></td>
+              <td data-label="申請日" data-column="submitted-at"><%= l(approval_request.created_at, format: :short) %></td>
+              <% if @filter == "processed" %>
+                <% direct = approval_request.is_a?(LeaveRequest) && approval_request.directly_cancelled? %>
+                <%# セルの中身は <div> 1つにまとめる（375px のカード表示で td が横並び（flex）になっても、中身が縦に積まれるように） %>
+                <td data-label="結果" data-column="status">
+                  <div class="approvals-table__cell">
+                    <%= approval_request_status_badge(approval_request) %>
+                    <% if direct %>
+                      <span class="approvals-table__cancel" data-testid="direct-cancellation-reason">取消の理由：<%= truncate(approval_request.cancellation_reason.to_s.squish, length: 40) %></span>
+                    <% end %>
+                  </div>
+                </td>
+                <td data-label="処理した管理者" data-column="reviewer">
+                  <div class="approvals-table__cell">
+                    <%= approval_request.reviewer&.name %>
+                    <% if direct %>
+                      <span class="approvals-table__cancel" data-testid="direct-cancellation-by">取消：<%= approval_request.cancelled_by&.name %></span>
+                    <% end %>
+                  </div>
+                </td>
+                <td data-label="処理日時" data-column="reviewed-at">
+                  <div class="approvals-table__cell">
+                    <%= l(approval_request.reviewed_at, format: :short) if approval_request.reviewed_at %>
+                    <% if direct %>
+                      <span class="approvals-table__cancel" data-testid="direct-cancellation-at">取消：<%= l(approval_request.cancelled_at, format: :short) %></span>
+                    <% end %>
+                  </div>
+                </td>
+              <% end %>
+              <td class="table__actions">
+                <% label = "#{approval_request.user.name} さんの #{approval_request_target_label(approval_request)} の#{approval_request.kind_label}申請" %>
+                <% if approval_request.pending? && approval_request.self_review_status(current_user, active_admin_count: @active_admin_count) != :forbidden %>
+                  <%= link_to "確認する", admin_approval_request_path(approval_request), class: "button button--primary button--small",
+                                                                                   "aria-label": "#{label}を確認して処理する" %>
+                <% else %>
+                  <%= link_to "詳細", admin_approval_request_path(approval_request), class: "button button--ghost button--small",
+                                                                               "aria-label": "#{label}の詳細" %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card empty-state" data-testid="approvals-empty">
+      <p><%= @filter == "pending" ? "承認待ちの申請はありません。" : "処理済みの申請はまだありません。" %></p>
+    </div>
+  <% end %>
+</div>

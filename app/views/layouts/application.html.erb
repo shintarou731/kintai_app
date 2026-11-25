@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
   <head>
-    <title><%= content_for(:title) || "Harness App" %></title>
+    <title><%= [ content_for(:title), "キンタイ帳" ].compact.join(" | ") %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
@@ -17,7 +17,25 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body>
-    <%= yield %>
+  <body class="<%= logged_in? ? "app" : "app app--guest" %>">
+    <% if logged_in? %>
+      <%= render "shared/header" %>
+    <% end %>
+
+    <main class="main">
+      <% if defined?(DevelopmentClock) && DevelopmentClock.active? %>
+        <% dev_now = Time.current %>
+        <%# 時刻は clock コントローラで毎秒進める（表示時点のまま止まらないように） %>
+        <p class="dev-clock-banner" role="note" data-testid="dev-clock-banner"
+           data-controller="clock" data-clock-server-now-value="<%= (dev_now.to_f * 1000).to_i %>"
+           data-clock-reload-on-date-change-value="false">
+          開発用：アプリの時計を DEV_NOW で変更して動作中です（現在
+          <span data-clock-target="date"><%= l(dev_now.to_date, format: :long) %></span>
+          <span data-clock-target="time"><%= dev_now.strftime("%H:%M:%S") %></span>）。
+        </p>
+      <% end %>
+      <%= render "shared/flash" %>
+      <%= yield %>
+    </main>
   </body>
 </html>

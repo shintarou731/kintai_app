@@ -41,6 +41,26 @@ module ApplicationHelper
     tag.span(config[:label], class: [ "status", "status--#{config[:modifier]}" ], data: { testid: "time-clock-status" })
   end
 
+  # 歯車（設定）のアイコン（SVG）。ヘッダーの「アカウント情報」へのリンクに使う
+  def settings_gear_icon
+    tag.svg(xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", width: 22, height: 22, fill: "none", stroke: "currentColor",
+            "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", focusable: "false",
+            class: "header__settings-icon") do
+      tag.circle(cx: 12, cy: 12, r: 3) + tag.path(d: SETTINGS_GEAR_PATH)
+    end
+  end
+
+  # Feather の settings アイコンの形（読みやすいよう、区切りのよい位置で分けて書く）
+  SETTINGS_GEAR_PATH = [
+    "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 ",
+    "1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06",
+    "a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 ",
+    "2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0",
+    "l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 ",
+    "1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9",
+    "a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+  ].join.freeze
+
   def user_role_badge(user)
     tag.span(user.role_label, class: [ "badge", user.admin? ? "badge--accent" : "badge--outline" ])
   end

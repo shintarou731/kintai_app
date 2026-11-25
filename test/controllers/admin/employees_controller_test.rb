@@ -209,4 +209,51 @@ class Admin::EmployeesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "従業 花子", employee.reload.name
     assert_includes response.body, "氏名に改行・タブなどの制御文字は使えません"
   end
+
+  test "アカウント情報から自分の編集画面を開くと、戻る・キャンセル・保存後の移り先がアカウント情報になる" do
+    admin = users(:admin)
+    sign_in_as admin
+    get edit_admin_employee_path(admin, from: "account")
+    assert_response :success
+    assert_select "a.back-link[href='#{account_path}']", "← アカウント情報に戻る"
+    assert_select ".form__actions a[href='#{account_path}']", "キャンセル"
+    assert_select "form[action='#{admin_employee_path(admin, from: 'account')}']"
+    assert_select "a[href='#{admin_employees_path}']", text: /従業員一覧に戻る|キャンセル/, count: 0
+
+    # 入力に誤りがあって画面を出し直しても、戻り先は変わらない
+    patch admin_employee_path(admin, from: "account"), params: { user: { name: "" } }
+    assert_response :unprocessable_entity
+    assert_select "a.back-link[href='#{account_path}']"
+    assert_select "form[action='#{admin_employee_path(admin, from: 'account')}']"
+
+    patch admin_employee_path(admin, from: "account"), params: { user: { name: "管理 太郎2" } }
+    assert_redirected_to account_path
+    assert_equal "管理 太郎2", admin.reload.name
+  end
+
+  test "戻り先は決まった値（from=account）の本人の編集画面だけで変わり、URL を渡しても外へは飛ばない" do
+    admin = users(:admin)
+    employee = users(:employee)
+    sign_in_as admin
+
+    # 他人の編集画面では from=account を無視する
+    get edit_admin_employee_path(employee, from: "account")
+    assert_select "a.back-link[href='#{admin_employees_path}']", "← 従業員一覧に戻る"
+    assert_select ".form__actions a[href='#{admin_employees_path}']", "キャンセル"
+    patch admin_employee_path(employee, from: "account"), params: { user: { name: "従業 花子2" } }
+    assert_redirected_to admin_employees_path
+
+    # 決まった値以外（外部の URL など）は無視し、従業員一覧に戻す
+    [ "https://evil.example.com/", "//evil.example.com", "/account", "Account" ].each do |value|
+      get edit_admin_employee_path(admin, from: value, return_to: "https://evil.example.com/")
+      assert_select "a.back-link[href='#{admin_employees_path}']"
+      assert_no_match(/evil\.example\.com/, response.body)
+      patch admin_employee_path(admin, from: value, return_to: "https://evil.example.com/"), params: { user: { name: "管理 太郎" } }
+      assert_redirected_to admin_employees_path
+    end
+
+    # from を付けないときは、これまでどおり従業員一覧へ
+    get edit_admin_employee_path(admin)
+    assert_select "a.back-link[href='#{admin_employees_path}']", "← 従業員一覧に戻る"
+  end
 end

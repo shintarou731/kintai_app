@@ -26,6 +26,28 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action='#{logout_path}'] button", "ログアウト"
   end
 
+  test "ホーム画面の最下部に「アカウント」欄（各画面へのリンクの一覧）が出ない。移動はヘッダーから行う" do
+    [ users(:employee), users(:admin) ].each do |user|
+      sign_in_as user
+      get root_path
+      assert_response :success
+      assert_select "main h2", text: "アカウント", count: 0
+      assert_select ".quick-links", count: 0
+      assert_select "main a[href='#{edit_password_path}']", count: 0
+      assert_select "[data-testid='home-dashboard-link'], [data-testid='home-approvals-link']", count: 0
+      # 移動先へはヘッダーから行ける
+      assert_select ".header [data-testid='header-settings'][href='#{account_path}']"
+      assert_select ".header__nav a[href='#{approval_requests_path}']"
+      if user.admin?
+        assert_select "[data-testid='admin-menu'] a[href='#{admin_dashboard_path}']"
+        assert_select "[data-testid='admin-menu'] a[href='#{admin_approval_requests_path}']"
+        assert_select "[data-testid='admin-menu'] a[href='#{admin_shift_reports_path}']"
+        assert_select "[data-testid='admin-menu'] a[href='#{admin_work_rule_setting_path}']"
+      end
+      delete logout_path
+    end
+  end
+
   test "従業員でログインするとヘッダーに氏名が出て、管理者の表示は出ない" do
     sign_in_as users(:employee)
     get root_path

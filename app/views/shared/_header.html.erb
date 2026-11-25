@@ -58,7 +58,14 @@
 
     <div class="header__user">
       <%= render "shared/notifications_menu" %>
-      <%= link_to current_user.name, edit_password_path, class: "header__user-name", title: "パスワード変更", data: { testid: "current-user-name" } %>
+      <%# 歯車（設定）：本人の「アカウント情報」画面へ。アイコンだけなので aria-label で名前を付ける %>
+      <% account_active = controller_path == "accounts" %>
+      <%= link_to account_path, class: [ "header__settings", ("is-active" if account_active || controller_path == "passwords") ],
+                                "aria-label": "設定（アカウント情報）", title: "設定（アカウント情報）",
+                                "aria-current": (account_active ? "page" : nil), data: { testid: "header-settings" } do %>
+        <%= settings_gear_icon %>
+      <% end %>
+      <%= link_to current_user.name, account_path, class: "header__user-name", title: "アカウント情報", data: { testid: "current-user-name" } %>
       <% if current_user.admin? %>
         <span class="badge badge--accent"><%= current_user.role_label %></span>
       <% end %>

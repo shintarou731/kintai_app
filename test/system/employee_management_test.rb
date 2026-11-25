@@ -59,8 +59,10 @@ class EmployeeManagementTest < ApplicationSystemTestCase
     assert_current_path root_path
     assert_text "この画面を表示する権限がありません。"
 
-    # 自分のパスワードを変更する
+    # 自分のパスワードを変更する（名前 → アカウント情報 → パスワード変更）
     click_on "新人 三郎"
+    assert_selector "h1", text: "新人 三郎 さん"
+    click_on "パスワードを変更する"
     fill_in "現在のパスワード", with: "initial123"
     fill_in "新しいパスワード", with: "mypassword1"
     fill_in "新しいパスワード（確認）", with: "mypassword1"

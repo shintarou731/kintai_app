@@ -272,24 +272,4 @@
       </p>
     </section>
   <% end %>
-
-  <section class="card section quick-links">
-    <h2 class="card__title">アカウント</h2>
-    <ul class="quick-links__list">
-      <li><%= link_to "今月の勤怠履歴を見る", attendances_path %></li>
-      <li><%= link_to "シフトを見る", shifts_path %></li>
-      <li><%= link_to "申請の一覧を見る", approval_requests_path %></li>
-      <li><%= link_to "パスワードを変更する", edit_password_path %></li>
-      <% if current_user.admin? %>
-        <li><%= link_to "今日の出勤状況を見る（ダッシュボード）", admin_dashboard_path, data: { testid: "home-dashboard-link" } %></li>
-        <li>
-          <%= link_to "申請を承認する", admin_approval_requests_path, data: { testid: "home-approvals-link" } %>
-          <% if pending_approval_count.positive? %><span class="muted">（承認待ち <%= pending_approval_count %>件）</span><% end %>
-        </li>
-        <li><%= link_to "従業員を管理する", admin_employees_path %></li>
-        <li><%= link_to "遅刻・早退・欠勤を確認する（予実の確認）", admin_shift_reports_path %></li>
-        <li><%= link_to "勤務ルールを設定する", admin_work_rule_setting_path %></li>
-      <% end %>
-    </ul>
-  </section>
 </div>

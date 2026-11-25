@@ -1,0 +1,92 @@
+<% content_for :title, "アカウント情報" %>
+<%# 本人のアカウント情報（閲覧専用）。欄の構成・並びは管理者の「従業員の編集画面」（admin/employees/edit）にそろえる %>
+<% user = @user %>
+<% paid_leave = @paid_leave %>
+
+<div class="page page--narrow" data-testid="account-page">
+  <header class="page__header">
+    <p class="page__eyebrow">アカウント情報</p>
+    <h1 class="page__title">
+      <%= user.name %> さん
+      <%= user_status_badge(user) %>
+    </h1>
+  </header>
+
+  <section class="card section" aria-labelledby="account-basic-title" data-testid="account-basic-card">
+    <h2 id="account-basic-title" class="card__title">基本情報</h2>
+    <dl class="form__grid account-fields">
+      <div class="form__field">
+        <dt class="form__label">氏名</dt>
+        <dd><span class="account-fields__value" data-testid="account-name"><%= user.name %></span></dd>
+      </div>
+
+      <div class="form__field">
+        <dt class="form__label">メールアドレス</dt>
+        <dd>
+          <span class="account-fields__value" data-testid="account-email"><%= user.email %></span>
+          <span class="form__hint account-fields__hint">ログインに使います。</span>
+        </dd>
+      </div>
+
+      <div class="form__field">
+        <dt class="form__label">入社日</dt>
+        <dd>
+          <span class="account-fields__value" data-testid="account-hired-on"><%= user.hired_on ? l(user.hired_on) : "未設定" %></span>
+        </dd>
+      </div>
+
+      <div class="form__field">
+        <dt class="form__label">役割</dt>
+        <dd>
+          <span class="account-fields__value" data-testid="account-role"><%= user.role_label %></span>
+          <% if user.admin? %>
+            <span class="form__hint account-fields__hint">ご自身の役割は変更できません（管理者がいなくなるのを防ぐため）。</span>
+          <% end %>
+        </dd>
+      </div>
+
+      <div class="form__field">
+        <dt class="form__label">雇用区分</dt>
+        <dd><span class="account-fields__value" data-testid="account-employment-type"><%= user.employment_type_label %></span></dd>
+      </div>
+    </dl>
+
+    <p class="account-fields__note muted" data-testid="account-readonly-note">
+      <% if user.admin? %>
+        この画面は確認用です。登録内容は、管理メニューの「従業員」画面で変更できます。
+      <% else %>
+        この画面は確認用です。登録内容に誤りがある場合は、管理者に変更を依頼してください。
+      <% end %>
+    </p>
+    <% if user.admin? %>
+      <%= link_to "「従業員」画面で変更する", edit_admin_employee_path(user, from: "account"), class: "button button--ghost", data: { testid: "account-admin-edit-link" } %>
+    <% end %>
+  </section>
+
+  <section class="card section" aria-labelledby="account-paid-leave-title" data-testid="account-paid-leave-card">
+    <h2 id="account-paid-leave-title" class="card__title">有給休暇</h2>
+    <p class="card__lead">
+      <strong data-testid="account-paid-leave-balance"><%= paid_leave_balance_label(paid_leave.balance) %></strong>
+      （当年度の取得 <span data-testid="account-paid-leave-taken"><%= format_leave_days(paid_leave.fiscal_year_taken_days) %></span>）。休暇の申請と、付与・取得の履歴は「休暇」画面で見られます。
+    </p>
+    <%= link_to "休暇を申請する・履歴を見る", leave_requests_path, class: "button button--ghost", data: { testid: "account-leaves-link" } %>
+  </section>
+
+  <section class="card section" aria-labelledby="account-password-title" data-testid="account-password-card">
+    <h2 id="account-password-title" class="card__title">パスワード</h2>
+    <p class="card__lead">ご自身のパスワードは、現在のパスワードを確認したうえで変更します。</p>
+    <%= link_to "パスワードを変更する", edit_password_path, class: "button button--ghost", data: { testid: "account-password-link" } %>
+  </section>
+
+  <section class="card section" aria-labelledby="account-status-title" data-testid="account-status-card">
+    <h2 id="account-status-title" class="card__title">アカウントの状態</h2>
+    <p class="card__lead account-status">
+      <%= user_status_badge(user) %>
+      <% if user.admin? %>
+        <span>ログインして、このアプリを使えます。ご自身のアカウントは無効にできません。</span>
+      <% else %>
+        <span>ログインして、このアプリを使えます。アカウントの状態の変更は、管理者が行います。</span>
+      <% end %>
+    </p>
+  </section>
+</div>

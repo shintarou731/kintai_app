@@ -82,7 +82,7 @@ class AccountTest < ApplicationSystemTestCase
       assert_current_path account_path
       assert_no_horizontal_scroll
       page.save_screenshot(Rails.root.join("tmp/screenshots/account-375-#{user.role}.png"))
-      click_on "ログアウト"
+      log_out
     end
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
@@ -92,14 +92,6 @@ class AccountTest < ApplicationSystemTestCase
 
   def rect(selector)
     page.evaluate_script("document.querySelector(#{selector.to_json}).getBoundingClientRect().toJSON()")
-  end
-
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
   end
 
   def assert_no_horizontal_scroll

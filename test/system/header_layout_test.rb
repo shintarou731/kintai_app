@@ -205,12 +205,4 @@ class HeaderLayoutTest < ApplicationSystemTestCase
   def resize_to(width)
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: width, height: 900, deviceScaleFactor: 1, mobile: false)
   end
-
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
-  end
 end

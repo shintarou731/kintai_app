@@ -37,7 +37,7 @@ class LeavesTest < ApplicationSystemTestCase
     visit attendances_path(month: @history_month)
     within("tr[data-date='#{@wednesday.iso8601}']") { assert_selector "[data-testid='day-leave']", text: "有給（午前半休）・申請中" }
 
-    click_on "ログアウト"
+    log_out
     log_in_as @admin
     assert_selector "[data-testid='admin-menu-badge']", text: "1"
     visit admin_approval_requests_path
@@ -51,7 +51,7 @@ class LeavesTest < ApplicationSystemTestCase
     accept_confirm { click_on "承認する" }
     assert_text "の休暇申請を承認しました。勤怠履歴の該当日に「有給（午前半休）」と表示されます。"
 
-    click_on "ログアウト"
+    log_out
     log_in_as @employee
     visit attendances_path(month: @history_month)
     within("tr[data-date='#{@wednesday.iso8601}']") do
@@ -96,7 +96,7 @@ class LeavesTest < ApplicationSystemTestCase
     visit attendances_path(month: @history_month)
     within("tr[data-date='#{@wednesday.iso8601}']") { assert_selector "[data-testid='day-leave']", text: "有給（全日）・取消申請中" }
 
-    click_on "ログアウト"
+    log_out
     log_in_as @admin
     visit admin_approval_requests_path
     within("[data-testid='approval-row']") do
@@ -106,7 +106,7 @@ class LeavesTest < ApplicationSystemTestCase
     accept_confirm { click_on "承認する" }
     assert_text "の休暇取消申請を承認しました。休暇を取り消しました"
 
-    click_on "ログアウト"
+    log_out
     log_in_as @employee
     visit attendances_path(month: @history_month)
     within("tr[data-date='#{@wednesday.iso8601}']") { assert_no_selector "[data-testid='day-leave']" }
@@ -182,14 +182,6 @@ class LeavesTest < ApplicationSystemTestCase
   end
 
   private
-
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
-  end
 
   def assert_no_horizontal_scroll
     scroll_width = page.evaluate_script("document.documentElement.scrollWidth")

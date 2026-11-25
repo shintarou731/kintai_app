@@ -88,21 +88,12 @@ class EmployeeManagementTest < ApplicationSystemTestCase
 
   private
 
-  def log_in_as(user)
-    log_in_with user.email, "password123"
-    assert_text "ログインしました。"
-  end
-
+  # ログインに失敗する場合も確かめるため、結果のメッセージは呼び出し側で確かめる
   def log_in_with(email, password)
     visit login_path
     fill_in "メールアドレス", with: email
     fill_in "パスワード", with: password
     click_on "ログイン"
-  end
-
-  def log_out
-    within(".header") { click_on "ログアウト" }
-    assert_text "ログアウトしました。"
   end
 
   def assert_no_horizontal_scroll

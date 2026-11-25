@@ -47,6 +47,9 @@ class AttendanceHistoryTest < ApplicationSystemTestCase
     click_on "翌月 →"
     assert_selector "[data-testid='period-label'] .badge", text: "今月"
     click_on "翌月 →"
+    # 翌月の画面に移ってから「今月」を押す（移動の途中で、前の画面のリンクを押さないように）
+    following = this_month.next_month
+    assert_selector "[data-testid='period-label']", text: "#{following.year}年#{following.month}月"
     click_on "今月"
     assert_selector "[data-testid='period-label'] .badge", text: "今月"
   end
@@ -123,14 +126,6 @@ class AttendanceHistoryTest < ApplicationSystemTestCase
 
   def background_of(selector)
     page.evaluate_script("getComputedStyle(document.querySelector(#{selector.to_json})).backgroundColor")
-  end
-
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
   end
 
   def assert_no_horizontal_scroll

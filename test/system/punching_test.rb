@@ -141,14 +141,6 @@ class PunchingTest < ApplicationSystemTestCase
     page.evaluate_script("(function(r){ return { left: r.left, right: r.right, top: r.top, bottom: r.bottom } })(document.querySelector(#{selector.to_json}).getBoundingClientRect())")
   end
 
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
-  end
-
   def assert_no_horizontal_scroll
     scroll_width = page.evaluate_script("document.documentElement.scrollWidth")
     client_width = page.evaluate_script("document.documentElement.clientWidth")

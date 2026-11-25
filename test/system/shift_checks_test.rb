@@ -25,6 +25,8 @@ class ShiftChecksTest < ApplicationSystemTestCase
 
     log_in_as @employee
     find("[data-testid='nav-my-shifts']").click
+    # 月の初日（昨日が前月）でも、ナビの移動が終わるのを待ってから次の visit に進む
+    assert_selector "[data-testid='calendar-day']"
     assert_selector "h1", text: "#{past.year}年#{past.month}月" if past.month == Date.current.month
     visit shifts_path(month: past.strftime("%Y-%m"))
     within("[data-testid='calendar-day'][data-date='#{past.iso8601}']") do
@@ -169,14 +171,6 @@ class ShiftChecksTest < ApplicationSystemTestCase
 
   def reset_size
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
-  end
-
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
   end
 
   def assert_no_horizontal_scroll

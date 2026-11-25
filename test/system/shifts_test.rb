@@ -94,6 +94,8 @@ class ShiftsTest < ApplicationSystemTestCase
     assert_operator menu.evaluate_script("this.getBoundingClientRect().right"), :<=, 375
     assert_no_horizontal_scroll
     within(".nav__menu-list") { click_on "シフト作成" }
+    # メニューからの移動が終わってから、パターンを選んだ週を開く
+    assert_selector "h1", text: "シフト作成"
 
     visit admin_shifts_path(week: @week.iso8601, pattern: @early.id)
     assert_selector "[data-testid='shift-table']"
@@ -144,14 +146,6 @@ class ShiftsTest < ApplicationSystemTestCase
   end
 
   private
-
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
-  end
 
   def assert_no_horizontal_scroll
     scroll_width = page.evaluate_script("document.documentElement.scrollWidth")

@@ -7,14 +7,6 @@ class NotificationsTest < ApplicationSystemTestCase
     @employee = users(:employee)
   end
 
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
-  end
-
   # 花子の打刻修正申請を管理者が承認した（花子に「承認」、管理者に「新しい申請」の通知が届く）
   def approved_correction!
     request = @employee.attendance_correction_requests.new(target_date: Date.current - 3, clock_in_time: "09:00", clock_out_time: "18:00",
@@ -66,7 +58,7 @@ class NotificationsTest < ApplicationSystemTestCase
     assert_no_selector "[data-testid='notifications-badge']"
     assert_no_selector "[data-testid='notifications-list'] [data-testid='notification-item'][data-state='unread']"
 
-    click_on "ログアウト"
+    log_out
     log_in_as @admin
     assert_selector "[data-testid='notifications-badge']", text: "1"
     find("[data-testid='notifications-bell']").click
@@ -108,7 +100,7 @@ class NotificationsTest < ApplicationSystemTestCase
       visit notifications_path
       assert_no_horizontal_scroll
       page.save_screenshot(Rails.root.join("tmp/screenshots/notifications-index-375-#{user.role}.png"))
-      click_on "ログアウト"
+      log_out
     end
   ensure
     page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")

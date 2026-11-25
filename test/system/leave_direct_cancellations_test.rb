@@ -103,20 +103,6 @@ class LeaveDirectCancellationsTest < ApplicationSystemTestCase
     leave
   end
 
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
-  end
-
-  # ログアウトが終わってログイン画面が出るまで待つ（次の visit と競合しないように）
-  def log_out
-    click_on "ログアウト"
-    assert_field "メールアドレス"
-  end
-
   def rect_of(selector)
     page.evaluate_script("(() => { const r = document.querySelector(#{selector.to_json}).getBoundingClientRect(); "                          "return { top: r.top, bottom: r.bottom, width: r.width, height: r.height }; })()")
   end

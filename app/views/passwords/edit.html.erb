@@ -1,6 +1,7 @@
 <% content_for :title, "パスワード変更" %>
 
 <div class="page page--narrow">
+  <%= link_to "← アカウント情報に戻る", account_path, class: "back-link", data: { testid: "password-back-link" } %>
   <header class="page__header">
     <h1 class="page__title">パスワード変更</h1>
   </header>
@@ -30,7 +31,7 @@
 
       <div class="form__actions">
         <%= f.submit "変更する", class: "button button--primary" %>
-        <%= link_to "キャンセル", root_path, class: "button button--ghost" %>
+        <%= link_to "キャンセル", account_path, class: "button button--ghost" %>
       </div>
     <% end %>
   </section>

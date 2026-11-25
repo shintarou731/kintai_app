@@ -68,12 +68,14 @@ a:hover { color: var(--color-accent-hover); }
   border-bottom: 1px solid var(--color-border);
 }
 
+/* 1段に収まらないときは、重ねずに折り返す（ナビは縮めない。下の幅ごとの指定も参照） */
 .header__inner {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: 0 16px;
   max-width: 1120px;
-  height: var(--header-height);
+  min-height: var(--header-height);
   margin: 0 auto;
   padding: 0 16px;
 }
@@ -105,7 +107,8 @@ a:hover { color: var(--color-accent-hover); }
 
 .header__title { font-size: 17px; }
 
-.header__nav { flex: 1; min-width: 0; }
+/* ナビは中身の幅より縮めない。縮めると、はみ出した項目が右のユーザー欄（ベル・歯車・名前）の上に重なり、押せなくなる（スプリント17の評価） */
+.header__nav { flex: 1 0 auto; }
 
 /* ===== ナビゲーション ===== */
 .nav { display: flex; align-items: center; gap: 4px; }
@@ -170,6 +173,8 @@ a:hover { color: var(--color-accent-hover); }
   align-items: center;
   gap: 8px;
   min-width: 0;
+  height: var(--header-height);
+  margin-left: auto;
 }
 
 .header__user-name {
@@ -225,8 +230,6 @@ a:hover { color: var(--color-accent-hover); }
 .nowrap { white-space: nowrap; }
 
 .empty-state { color: var(--color-text-muted); text-align: center; }
-
-.quick-links__list { margin: 0; padding-left: 20px; }
 
 /* ===== カード ===== */
 .card {
@@ -376,6 +379,25 @@ a:hover { color: var(--color-accent-hover); }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 16px;
 }
+
+/* アカウント情報（閲覧専用）。従業員の編集画面の入力欄と同じ大きさ・並びで、値を読み取り専用の枠に出す */
+.account-fields { margin: 0; }
+.account-fields dd { margin: 0; }
+.account-fields__value {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.account-fields__hint { display: block; }
+.account-fields__note { margin: 0 0 12px; font-size: 13px; }
+.account-fields__note:last-child { margin-bottom: 0; }
+.account-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
 .form__required {
   margin-left: 4px;
@@ -1312,22 +1334,33 @@ a.history-table__leave:hover { opacity: 0.85; text-decoration: underline; }
   .dashboard-todo { grid-template-columns: 1fr; }
 }
 
-/* ===== スマートフォン幅 ===== */
-@media (max-width: 600px) {
-  /* ヘッダーは2段：1段目にアプリ名とユーザー、2段目にナビ */
-  .header__inner { flex-wrap: wrap; gap: 0 8px; height: auto; padding: 0 12px; }
-  .header__brand,
-  .header__user { height: 48px; }
-  .header__user { margin-left: auto; }
+/* ===== ヘッダーの幅ごとの並び（スプリント17の修正） =====
+   1段（アプリ名・ナビ・ユーザー欄）に並べるのは 1024px 以上だけ。
+   管理者で名前が長い（14em）と、1段に必要な幅は約 1080px になるため、1024〜1119px では名前の最大幅を詰めて収める */
+@media (max-width: 1119px) {
+  .header__user-name { max-width: 8em; }
+}
+/* 1023px 以下は2段：1段目にアプリ名とユーザー欄、2段目にナビ（iPad の縦向き 768〜820px を含む） */
+@media (max-width: 1023px) {
   .header__nav {
     flex-basis: 100%;
     order: 3;
     padding: 4px 0 6px;
     border-top: 1px solid var(--color-border);
   }
-  .nav__link { min-height: 32px; padding: 4px 10px; font-size: 14px; }
   /* ナビの項目が増えて1行に収まらなくなったら、横にはみ出さずに折り返す */
   .nav { flex-wrap: wrap; row-gap: 2px; }
+  /* ヘッダーが2段で高くなる分、トーストを2段目のナビに重ねない（600px 以下は別の指定で画面上端に出す） */
+  .toast-area { top: calc(var(--header-height) + 56px); }
+}
+
+/* ===== スマートフォン幅 ===== */
+@media (max-width: 600px) {
+  /* ヘッダーは2段：1段目にアプリ名とユーザー、2段目にナビ（並びは上の 1023px 以下の指定） */
+  .header__inner { gap: 0 8px; padding: 0 12px; }
+  .header__brand,
+  .header__user { height: 48px; }
+  .nav__link { min-height: 32px; padding: 4px 10px; font-size: 14px; }
   /* 「管理」のメニューは、押した位置ではなくヘッダー（position: sticky）を基準に、画面の左右いっぱいに出す。
      ナビの項目が増えて「管理」が右に寄っても、画面の右にはみ出さない */
   .nav__menu { position: static; }
@@ -1550,6 +1583,20 @@ a.history-table__leave:hover { opacity: 0.85; text-decoration: underline; }
 .notifications-menu__toggle:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.35); outline-offset: 1px; }
 .notifications-menu[open] > .notifications-menu__toggle,
 .notifications-menu__toggle.is-active { background: var(--color-accent-soft); color: var(--color-accent); }
+/* ヘッダーの歯車（アカウント情報へのリンク）。見た目はベルにそろえる */
+.header__settings {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+}
+.header__settings:hover { background: var(--color-neutral-soft); color: var(--color-text); }
+.header__settings:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.35); outline-offset: 1px; }
+.header__settings.is-active { background: var(--color-accent-soft); color: var(--color-accent); }
 /* バッジはベルの右上に重ねる。右端をそろえるので、件数の桁が増えると左へ伸びる（右どなりのユーザー名にかからない） */
 .notifications-menu__badge {
   position: absolute;
@@ -1666,14 +1713,40 @@ a.history-table__leave:hover { opacity: 0.85; text-decoration: underline; }
 .pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; }
 .pagination__status { color: var(--color-text-muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 
+/* 1023px 以下（ヘッダーが2段）では、ベルの一覧の位置の基準を、ベルではなくヘッダー（position: sticky）にする。
+   ヘッダーの下に、画面の右端から 12px 空けて出す。ベルの位置（歯車・名前・管理者バッジ・ログアウトの幅で変わる）に
+   左右されないので、左にはみ出さない（スプリント17の第2回評価：601〜679px で左に最大 79px はみ出していた） */
+@media (max-width: 1023px) {
+  .notifications-menu { position: static; }
+  .notifications-menu__panel {
+    top: 100%;
+    right: 12px;
+    left: auto;
+    width: min(380px, calc(100% - 24px));
+    max-width: none;
+    max-height: min(560px, calc(100vh - 120px));
+  }
+}
 @media (max-width: 600px) {
   .header__user { gap: 4px; }
-  .notifications-menu__toggle { width: 36px; height: 36px; }
-  /* ベルの一覧は、ヘッダー（position: sticky）を基準に、画面の左右いっぱいに出す */
-  .notifications-menu { position: static; }
-  .notifications-menu__panel { top: 100%; right: 12px; left: 12px; width: auto; max-width: none; max-height: calc(100vh - 120px); }
+  .notifications-menu__toggle,
+  .header__settings { width: 36px; height: 36px; }
+  /* ベルの一覧は、画面の左右いっぱい（12px 空け）に出す（位置の基準は上の 1023px 以下の指定でヘッダー） */
+  .notifications-menu__panel { left: 12px; width: auto; }
   .notification-item { padding: 12px; }
 }
 @media (max-width: 380px) {
   .header__user-name { max-width: 5.5em; }
+}
+/* 歯車（アカウント情報）が増えた分、狭い画面ではアプリ名の文字を隠してロゴ（K）だけにし、ヘッダーを1段目に収める。
+   文字は読み上げ用に残す（visually-hidden と同じ隠し方） */
+@media (max-width: 440px) {
+  .header__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }

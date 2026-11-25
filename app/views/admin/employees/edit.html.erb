@@ -3,7 +3,8 @@
 <% display_name = @employee.name_in_database %>
 
 <div class="page page--narrow">
-  <%= link_to "← 従業員一覧に戻る", admin_employees_path, class: "back-link" %>
+  <%# アカウント情報画面から来たとき（from=account・本人のみ）は、戻り先をアカウント情報にする %>
+  <%= link_to (from_account? ? "← アカウント情報に戻る" : "← 従業員一覧に戻る"), back_path, class: "back-link" %>
   <header class="page__header">
     <h1 class="page__title">
       <%= display_name %> さん
@@ -13,7 +14,8 @@
 
   <section class="card section">
     <h2 class="card__title">基本情報</h2>
-    <%= render "form", employee: @employee, url: admin_employee_path(@employee), password: false, self_edit: self_edit, submit_label: "更新する" %>
+    <%= render "form", employee: @employee, url: admin_employee_path(@employee, from: (Admin::EmployeesController::FROM_ACCOUNT if from_account?)),
+                         cancel_path: back_path, password: false, self_edit: self_edit, submit_label: "更新する" %>
   </section>
 
   <section class="card section" data-testid="employee-paid-leave-card">

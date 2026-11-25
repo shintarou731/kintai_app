@@ -278,10 +278,12 @@ class AttendancesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "ホーム画面から勤怠履歴へのリンクがある" do
+  test "ホーム画面からはヘッダーのナビで勤怠履歴へ移れる（ホームの「アカウント」欄は無い）" do
     sign_in_as @user
     get root_path
-    assert_select ".quick-links a[href='#{attendances_path}']", "今月の勤怠履歴を見る"
+    assert_select ".header__nav a[href='#{attendances_path}']", "勤怠履歴"
+    assert_select ".quick-links", count: 0
+    assert_select "main a", text: "今月の勤怠履歴を見る", count: 0
   end
 
   test "開発用の注意書きは時計（clock コントローラ）で時刻が進む" do

@@ -42,6 +42,10 @@ Rails.application.routes.draw do
     resource :cancellation, only: %i[show create], module: :leave_requests
   end
 
+  # 自分のアカウント情報（/account）。閲覧専用で、ログイン中の本人の情報だけを表示する（ID を受け取らない単数のリソース）。
+  # 変更（パスワードを除く）は管理者が「従業員」画面で行うので、更新の操作は用意しない
+  resource :account, only: :show
+
   # 自分のパスワード変更
   resource :password, only: %i[edit update]
 

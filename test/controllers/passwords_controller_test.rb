@@ -19,7 +19,7 @@ class PasswordsControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[name='user[password_confirmation]']"
 
     patch password_path, params: change_params
-    assert_redirected_to root_path
+    assert_redirected_to account_path
     follow_redirect!
     assert_select ".flash--notice", "パスワードを変更しました。"
 

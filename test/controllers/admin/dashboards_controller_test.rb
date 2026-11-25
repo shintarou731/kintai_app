@@ -71,7 +71,8 @@ class Admin::DashboardsControllerTest < ActionDispatch::IntegrationTest
     assert_equal root_path, path
     assert_select "[data-testid='clock-in-button']"
     assert_select "[data-testid='admin-menu'] a[href='#{admin_dashboard_path}'][data-testid='nav-dashboard']", "ダッシュボード"
-    assert_select "a[href='#{admin_dashboard_path}'][data-testid='home-dashboard-link']"
+    # ホームの「アカウント」欄（各画面へのリンクの一覧）は無く、ダッシュボードへはヘッダーの管理メニューから移る
+    assert_select "[data-testid='home-dashboard-link']", count: 0
 
     get admin_dashboard_path
     assert_response :success

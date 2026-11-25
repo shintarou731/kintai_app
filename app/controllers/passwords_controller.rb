@@ -10,7 +10,7 @@ class PasswordsController < ApplicationController
     if @user.change_password(current_password: password_params[:current_password],
                              new_password: password_params[:password],
                              new_password_confirmation: password_params[:password_confirmation].to_s)
-      redirect_to root_path, notice: "パスワードを変更しました。"
+      redirect_to account_path, notice: "パスワードを変更しました。"
     else
       render :edit, status: :unprocessable_entity
     end

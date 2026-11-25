@@ -1,4 +1,5 @@
-<%# 従業員の登録・編集フォーム。password: true のときは初期パスワード欄を、self_edit: true のときは役割を変更不可で出す %>
+<%# 従業員の登録・編集フォーム。password: true のときは初期パスワード欄を、self_edit: true のときは役割を変更不可で出す。
+    cancel_path を省くと、「キャンセル」は従業員一覧に戻る %>
 <%= form_with model: employee, url: url, class: "form" do |f| %>
   <%= render "shared/form_errors", record: employee %>
 
@@ -48,6 +49,6 @@
 
   <div class="form__actions">
     <%= f.submit submit_label, class: "button button--primary" %>
-    <%= link_to "キャンセル", admin_employees_path, class: "button button--ghost" %>
+    <%= link_to "キャンセル", local_assigns.fetch(:cancel_path, admin_employees_path), class: "button button--ghost" %>
   </div>
 <% end %>

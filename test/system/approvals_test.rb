@@ -56,7 +56,7 @@ class ApprovalsTest < ApplicationSystemTestCase
     assert_equal @date.in_time_zone.change(hour: 18), attendance.clock_out_at
     assert_equal 1, attendance.breaks.count
 
-    click_on "ログアウト"
+    log_out
     log_in_as @employee
     within(".header__nav") { click_on "申請" }
     within("[data-testid='request-row']") do
@@ -119,14 +119,6 @@ class ApprovalsTest < ApplicationSystemTestCase
   end
 
   private
-
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
-  end
 
   def assert_no_horizontal_scroll
     scroll_width = page.evaluate_script("document.documentElement.scrollWidth")

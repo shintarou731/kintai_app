@@ -55,6 +55,8 @@ class CorrectionRequestsTest < ApplicationSystemTestCase
 
     # 勤怠履歴には「申請中」の印（記録はまだ変わらない）
     within(".header__nav") { click_on "勤怠履歴" }
+    # ナビの移動が終わってから、対象日の月度を開く（移動の途中で visit すると、移動と競合する）
+    assert_selector "[data-testid='period-label']"
     visit @history_path
     assert_selector "tr[data-date='#{@date.iso8601}'] [data-testid='pending-correction']", text: "申請中"
     assert_selector "tr[data-date='#{@date.iso8601}'] [data-testid='day-status']", text: "退勤漏れ"
@@ -121,14 +123,6 @@ class CorrectionRequestsTest < ApplicationSystemTestCase
       find("select[name$='[end_day]']").select(end_day) if end_day
       find("input[name$='[end_time]']").set(end_time)
     end
-  end
-
-  def log_in_as(user)
-    visit login_path
-    fill_in "メールアドレス", with: user.email
-    fill_in "パスワード", with: "password123"
-    click_on "ログイン"
-    assert_text "ログインしました。"
   end
 
   def assert_no_horizontal_scroll

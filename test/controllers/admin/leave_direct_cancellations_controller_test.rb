@@ -69,7 +69,7 @@ class Admin::LeaveDirectCancellationsControllerTest < ActionDispatch::Integratio
 
     post_cancel(leave)
     assert_redirected_to admin_approval_request_path(leave)
-    assert_equal "従業 花子 さんの 11/24(火) の有給休暇（全日）を取り消しました。本人の勤怠履歴の該当日から休暇の表示が消えます。",
+    assert_equal "従業 花子 さんの 11/24(火) の有給休暇（全日）を取り消しました。本人の勤怠履歴の該当日から休暇の表示が消えます。有給休暇の残日数に1日戻しました。",
                  flash[:notice]
     leave.reload
     assert leave.directly_cancelled?
@@ -337,15 +337,15 @@ class Admin::LeaveDirectCancellationsControllerTest < ActionDispatch::Integratio
     leave = leave!(from: d(24), to: d(24))
     sign_in_as @admin
 
-    ClosedPeriodGuard.stub(:closed_period_label, ->(_from, _to) { "2026年11月度" }) do
-      get admin_approval_request_path(leave)
-      assert_select "[data-testid='direct-cancellation-form']", 0
-      assert_select "[data-testid='direct-cancellation-blockers']", text: /締め済みの月度（2026年11月度）にかかるため、取り消せません/
+    MonthlyClosing.create!(year: 2026, month: 11, start_date: d(1), end_date: d(30), scheduled_work_minutes: 480,
+                           standard_break_minutes: 60, overtime_warning_hours: 45, closed_by: @admin, closed_at: Time.current)
+    get admin_approval_request_path(leave)
+    assert_select "[data-testid='direct-cancellation-form']", 0
+    assert_select "[data-testid='direct-cancellation-blockers']", text: /締め済みの月度（2026年11月：11\/1\(日\)〜11\/30\(月\)）にかかるため、取り消せません/
 
-      post_cancel(leave)
-      assert_response :unprocessable_entity
-      assert_select ".flash--alert", text: /締め済みの月度（2026年11月度）/
-    end
+    post_cancel(leave)
+    assert_response :unprocessable_entity
+    assert_select ".flash--alert", text: /締め済みの月度（2026年11月/
     assert leave.reload.effective?
   end
 

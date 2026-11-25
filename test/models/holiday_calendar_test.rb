@@ -59,4 +59,18 @@ class HolidayCalendarTest < ActiveSupport::TestCase
   test "日時（Time）を渡しても日付で判定する" do
     assert_equal "勤労感謝の日", HolidayCalendar.holiday_name(Time.zone.local(2026, 11, 23, 23, 59))
   end
+  # HolidayCalendar は gem の祝日データ（HolidayJp.holidays.holidays の Hash）を直接引いている（全件を走査しないため）。
+  # gem を更新して内部の構造が変わったときに気付けるよう、gem 自身の公開の判定（HolidayJp.holiday?）と結果が一致することを
+  # 2025〜2028年の毎日で確かめる（スプリント 9.2 の評価の所見への対応）。
+  test "gem 自身の判定（HolidayJp.holiday?）と、2025〜2028年の毎日で結果が一致する" do
+    mismatches = (Date.new(2025, 1, 1)..Date.new(2028, 12, 31)).reject do |date|
+      HolidayJp.holiday?(date) == HolidayCalendar.holiday?(date)
+    end
+    assert_equal [], mismatches
+    # 名前も gem の公開の API（HolidayJp.between）と一致する
+    from = Date.new(2026, 1, 1)
+    to = Date.new(2027, 12, 31)
+    expected = HolidayJp.between(from, to).to_h { |holiday| [ holiday.date, holiday.name ] }
+    assert_equal expected, HolidayCalendar.holidays_between(from, to)
+  end
 end

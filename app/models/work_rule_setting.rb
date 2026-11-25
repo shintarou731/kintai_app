@@ -86,12 +86,13 @@ class WorkRuleSetting < ApplicationRecord
     self.class.closing_day_label(closing_day)
   end
 
-  # 計算に使う勤務ルール
-  def to_work_rules
+  # 計算に使う勤務ルール（closings … 月度の期間の決め方に使う締め済みの月度）
+  def to_work_rules(closings: [])
     WorkRules.new(scheduled_work_minutes: scheduled_work_minutes,
                   standard_break_minutes: standard_break_minutes,
                   closing_day: closing_day,
-                  overtime_warning_hours: overtime_warning_hours)
+                  overtime_warning_hours: overtime_warning_hours,
+                  closings: closings)
   end
 
   CHANGE_LABELS = {

@@ -1,0 +1,26 @@
+<%# シフトパターンの入力欄（登録・変更で共通） %>
+<%= render "shared/form_errors", record: pattern %>
+<div class="shift-pattern-form__grid">
+  <div class="form__field">
+    <%= f.label :name, class: "form__label" do %>パターン名 <span class="form__required">必須</span><% end %>
+    <%= f.text_field :name, class: "form__input", required: true, maxlength: ShiftPattern::NAME_MAX_LENGTH, placeholder: "例：早番" %>
+  </div>
+  <div class="form__field">
+    <%= f.label :start_time, class: "form__label" do %>開始時刻 <span class="form__required">必須</span><% end %>
+    <%= f.time_field :start_time, value: shift_time_input_value(pattern.start_time), class: "form__input", required: true %>
+  </div>
+  <div class="form__field">
+    <%= f.label :end_time, class: "form__label" do %>終了時刻 <span class="form__required">必須</span><% end %>
+    <%= f.time_field :end_time, value: shift_time_input_value(pattern.end_time), class: "form__input", required: true %>
+  </div>
+  <div class="form__field">
+    <%= f.label :break_minutes, class: "form__label" do %>休憩時間 <span class="form__required">必須</span><% end %>
+    <div class="input-with-unit">
+      <%= f.number_field :break_minutes, value: pattern.break_minutes_before_type_cast, class: "form__input", min: 0, step: 1, inputmode: "numeric" %>
+      <span class="input-with-unit__unit">分</span>
+    </div>
+  </div>
+</div>
+<p class="form__hint">
+  終了時刻が開始時刻より前なら、日付をまたいで翌日に終わるパターンになります（例：夜勤 22:00〜翌6:00）。パターン名は<%= ShiftPattern::NAME_MAX_LENGTH %>文字まで、<%= ShiftPattern::MAX_COUNT %>件まで登録できます。
+</p>

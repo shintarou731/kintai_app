@@ -1,0 +1,28 @@
+<%# CSV の書き出し（F15）。この月度の従業員別の集計と、全従業員の日別の明細をダウンロードする %>
+<% period = summary.period %>
+<% summary_csv = MonthlySummaryCsv.new(summary) %>
+<% daily_csv = MonthlyDailyCsv.new(summary) %>
+<section class="card section csv-export" aria-labelledby="csv-export-title" data-testid="csv-export">
+  <h2 id="csv-export-title" class="card__title card__title--small">CSVで書き出す（<%= period.label %>）</h2>
+  <div class="csv-export__actions">
+    <%= link_to admin_monthly_export_path("summary", month: period.to_param, format: :csv),
+                class: "button button--primary button--small csv-export__button", download: summary_csv.filename,
+                data: { turbo: false, testid: "csv-summary-link" } do %>
+      従業員別の集計<span class="csv-export__meta">（<%= summary.rows.size %>名）</span>
+    <% end %>
+    <%= link_to admin_monthly_export_path("daily", month: period.to_param, format: :csv),
+                class: "button button--ghost button--small csv-export__button", download: daily_csv.filename,
+                data: { turbo: false, testid: "csv-daily-link" } do %>
+      日別の明細<span class="csv-export__meta">（<%= summary.rows.size %>名 × <%= period.dates.count %>日）</span>
+    <% end %>
+  </div>
+  <% unless summary.closed? %>
+    <p class="csv-export__note csv-export__note--open" data-testid="csv-open-note">
+      この<%= period.unit %>はまだ締めていません。書き出した時点の値で、この後の打刻・申請の承認・直接修正で変わることがあります（ファイル名に「未締め」と付きます）。給与計算に使う場合は、締めてから書き出してください。
+    </p>
+  <% end %>
+  <p class="csv-export__note muted" data-testid="csv-format-note">
+    Excel でそのまま開けます（UTF-8・BOM 付き）。時間は画面と同じ「時:分」の列と、給与ソフトに取り込みやすい「分」の列を並べています。
+    日別の明細は、勤務の無い日を含む月度のすべての日を1行ずつ出します。「=」「+」「-」「@」で始まる文字は、数式にならないよう先頭に「'」を付けます。
+  </p>
+</section>

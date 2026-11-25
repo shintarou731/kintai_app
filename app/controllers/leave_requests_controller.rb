@@ -33,6 +33,7 @@ class LeaveRequestsController < ApplicationController
     scope = @filter == "upcoming" ? upcoming.order(:target_date, :id) : leaves.order(target_date: :desc, id: :desc)
     @leaves = scope.includes(:cancellation_requests, :reviewer).to_a
     @highlight_id = flash[:highlight_request_id]
+    @paid_leave = PaidLeaveAccount.new(current_user)
   end
 
   # パラメーターが欠けていても 400 にせず、入力画面にエラーを出す

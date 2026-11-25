@@ -15,6 +15,9 @@ class ApprovalConcurrencyTest < ActiveSupport::TestCase
   end
 
   teardown do
+    # 通知（F16）は申請・承認・公開などで作られるので、先に消す（ユーザーなどへの外部キーがあるため）
+    Notification.delete_all
+    OvertimeAlert.delete_all
     AttendanceCorrectionBreak.delete_all
     ApprovalRequest.delete_all
     AttendanceBreak.delete_all

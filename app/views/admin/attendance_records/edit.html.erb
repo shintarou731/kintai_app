@@ -1,0 +1,149 @@
+<% record_editor = @record_editor %>
+<% user = @user %>
+<% date = @date %>
+<% date_label = l(date, format: :short_with_day) %>
+<% current = record_editor.current_attendance %>
+<% blockers = record_editor.blockers %>
+<% back_path = admin_monthly_summary_path(user, month: @period.to_param) %>
+<% content_for :title, "勤怠の直接修正（#{user.name}・#{date_label}）" %>
+
+<div class="page page--narrow">
+  <%= link_to "← #{user.name} さんの日別の勤怠に戻る（#{@period.label}）", back_path, class: "back-link" %>
+  <header class="page__header">
+    <p class="page__eyebrow">管理・月次集計</p>
+    <h1 class="page__title">勤怠の直接修正 <span class="correction-date" data-testid="edit-target"><%= user.name %>・<%= l(date, format: :long) %></span></h1>
+    <p class="page__lead muted">出勤・退勤・休憩を直接直します（申請・承認の手続きは不要で、保存した時点で記録が変わります）。理由は必須で、修正前・修正後と一緒に履歴に残ります。</p>
+  </header>
+
+  <% if blockers.any? %>
+    <div class="notice-box notice-box--danger section" role="alert" data-testid="edit-blockers">
+      <p class="notice-box__title">この日の勤怠は直せません</p>
+      <ul class="notice-box__list"><% blockers.each do |message| %><li><%= message %></li><% end %></ul>
+    </div>
+  <% end %>
+
+  <section class="card section correction-current" aria-labelledby="current-title" data-testid="current-record">
+    <h2 id="current-title" class="card__title card__title--small">今の記録</h2>
+    <% if current %>
+      <dl class="correction-current__list">
+        <div><dt>出勤</dt><dd><%= correction_time_label(current.clock_in_at, date) %></dd></div>
+        <div>
+          <dt>退勤</dt>
+          <dd>
+            <%= correction_time_label(current.clock_out_at, date) %>
+            <% if current.missing_clock_out? %><span class="badge badge--danger">退勤漏れ</span><% end %>
+            <% if current.clock_out_open? %><span class="badge badge--success">勤務中（本人が退勤できます）</span><% end %>
+          </dd>
+        </div>
+        <div><dt>休憩</dt><dd><%= correction_breaks_label(current.breaks.to_a, date) %></dd></div>
+      </dl>
+      <% if current.on_break? %>
+        <p class="form__hint" data-testid="on-break-hint">本人は休憩中です。休憩の終了時刻を入れずに保存することはできません（終了時刻を入れるか、その休憩の行を削除してください）。</p>
+      <% end %>
+    <% else %>
+      <p class="muted correction-current__empty" data-testid="current-record-empty">
+        この日の勤怠はありません。<% if blockers.empty? %>保存すると、新しく作ります。<% end %>
+      </p>
+    <% end %>
+    <% if (pending = user.attendance_correction_requests.pending.find_by(target_date: date)) %>
+      <p class="form__hint" data-testid="pending-correction-hint">
+        この日には承認待ちの打刻修正申請があります（<%= link_to "申請を見る", admin_approval_request_path(pending) %>）。
+        直接直した後にその申請を承認すると、申請の内容で記録が置き換わります。
+      </p>
+    <% end %>
+  </section>
+
+  <% if blockers.empty? %>
+    <section class="card section" aria-labelledby="form-title">
+      <h2 id="form-title" class="card__title"><%= current ? "直す内容" : "作る内容" %></h2>
+
+      <%= form_with model: record_editor, scope: :attendance_record_editor, url: admin_attendance_record_path(user.id, date.iso8601),
+                    method: :patch, class: "form correction-form", data: { testid: "record-edit-form" } do |f| %>
+        <% if @delete_errors.blank? %><%= render "shared/form_errors", record: record_editor %><% end %>
+        <%= f.hidden_field :record_token %>
+
+        <div class="correction-form__times">
+          <div class="form__field">
+            <%= f.label :clock_in_time, class: "form__label" do %>出勤 <span class="form__required">必須</span><% end %>
+            <div class="time-input">
+              <span class="time-input__day" aria-hidden="true"><%= date_label %></span>
+              <%= f.time_field :clock_in_time, class: "form__input time-input__time", required: true %>
+            </div>
+          </div>
+
+          <div class="form__field">
+            <%= f.label :clock_out_time, class: "form__label" do %>
+              退勤 <% if record_editor.clock_out_optional? %><span class="form__optional">勤務中なら空欄</span><% else %><span class="form__required">必須</span><% end %>
+            <% end %>
+            <div class="time-input">
+              <%= f.select :clock_out_day, correction_day_options(date), {}, class: "form__input time-input__select", "aria-label": "退勤の日付" %>
+              <%= f.time_field :clock_out_time, class: "form__input time-input__time" %>
+            </div>
+            <p class="form__hint">日付をまたいで退勤した場合は「翌日」を選びます。</p>
+          </div>
+        </div>
+
+        <% rows = record_editor.break_inputs.presence || [ AttendanceCorrectionRequest::BreakInput.new(start_day: "0", end_day: "0") ] %>
+        <fieldset class="correction-breaks" data-controller="break-rows"
+                  data-break-rows-max-value="<%= AttendanceCorrectionRequest::MAX_BREAKS %>" data-testid="correction-breaks">
+          <legend class="form__label">休憩 <span class="form__optional">任意・<%= AttendanceCorrectionRequest::MAX_BREAKS %>回まで</span></legend>
+          <ol class="correction-breaks__list" data-break-rows-target="list">
+            <% rows.each_with_index do |input, index| %>
+              <%= render "attendance_correction_requests/break_row", input: input, index: index, number: index + 1, date: date,
+                                                                     scope: "attendance_record_editor",
+                                                                     invalid: record_editor.invalid_break_numbers.include?(index + 1) %>
+            <% end %>
+          </ol>
+          <template data-break-rows-target="template">
+            <%= render "attendance_correction_requests/break_row", input: AttendanceCorrectionRequest::BreakInput.new(start_day: "0", end_day: "0"),
+                                                                   index: "NEW_INDEX", number: "", date: date, invalid: false,
+                                                                   scope: "attendance_record_editor" %>
+          </template>
+          <button type="button" class="button button--ghost button--small" data-action="break-rows#add"
+                  data-break-rows-target="addButton" data-testid="add-break">＋ 休憩を追加</button>
+        </fieldset>
+
+        <div class="form__field">
+          <%= f.label :reason, class: "form__label" do %>理由 <span class="form__required">必須</span><% end %>
+          <%= f.text_area :reason, class: "form__input form__textarea", rows: 3, required: true, maxlength: ApprovalRequest::REASON_MAX_LENGTH,
+                                   placeholder: "例：本人から退勤の打刻を忘れたと連絡があり、タイムカードで 18:00 の退勤を確認したため。" %>
+          <p class="form__hint">何を、なぜ直すのかを書いてください（<%= ApprovalRequest::REASON_MAX_LENGTH %>文字まで）。履歴に残ります。</p>
+        </div>
+
+        <div class="form__actions">
+          <%= f.submit current ? "修正を保存する" : "勤怠を作成する", class: "button button--primary",
+                       data: { turbo_submits_with: "保存中…", testid: "record-save" } %>
+          <%= link_to "キャンセル", back_path, class: "button button--ghost" %>
+        </div>
+      <% end %>
+    </section>
+
+    <% if current %>
+      <section class="card section" aria-labelledby="delete-title" data-testid="record-delete">
+        <h2 id="delete-title" class="card__title card__title--small">この日の勤怠を削除する</h2>
+        <p class="form__hint">誤って打刻した日など、勤務が無かった日の記録を消します。削除前の記録と理由は履歴に残ります。</p>
+        <% if @delete_errors.present? %>
+          <div class="form-errors" role="alert" data-testid="delete-errors">
+            <ul class="form-errors__list"><% @delete_errors.each do |message| %><li><%= message %></li><% end %></ul>
+          </div>
+        <% end %>
+        <%= form_with scope: :attendance_record_delete, url: admin_attendance_record_path(user.id, date.iso8601), method: :delete,
+                      class: "form", data: { testid: "record-delete-form" } do |f| %>
+          <%= f.hidden_field :record_token, value: AttendanceRecordEditor.token_for(current) %>
+          <div class="form__field">
+            <%= f.label :reason, class: "form__label" do %>削除の理由 <span class="form__required">必須</span><% end %>
+            <%= f.text_area :reason, class: "form__input form__textarea", rows: 2, required: true, maxlength: ApprovalRequest::REASON_MAX_LENGTH %>
+          </div>
+          <%= f.submit "この日の勤怠を削除する", class: "button button--danger",
+                       data: { turbo_confirm: "#{user.name} さんの #{date_label} の勤怠（出勤 #{format_clock_time(current.clock_in_at)}）を削除しますか？",
+                               turbo_submits_with: "削除中…", testid: "record-delete-button" } %>
+        <% end %>
+      </section>
+    <% end %>
+  <% end %>
+
+  <section class="section" aria-labelledby="edits-title">
+    <h2 id="edits-title" class="section__title">この日の直接修正の履歴</h2>
+    <%= render "admin/attendance_records/edit_history", edits: @edits, show_date: false %>
+  </section>
+</div>

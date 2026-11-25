@@ -159,24 +159,17 @@ class LeaveDirectCancellationTest < ActiveSupport::TestCase
 
   test "締め済み（F14）の月度にかかる休暇は取り消せない（ClosedPeriodGuard で判定する）" do
     leave = leave!(from: d(24), to: d(24))
-    checked = []
-    guard = lambda do |from, to|
-      checked << [ from, to ]
-      "2026年11月度"
-    end
-
-    ClosedPeriodGuard.stub(:closed_period_label, guard) do
-      assert_equal [ "この休暇は締め済みの月度（2026年11月度）にかかるため、取り消せません。" ],
-                   leave.direct_cancellation_blockers(@admin)
-      saved, cancellation = cancel(leave)
-      assert_not saved
-      assert_equal [ "この休暇は締め済みの月度（2026年11月度）にかかるため、取り消せません。" ], cancellation.errors.full_messages
-    end
-    assert_includes checked, [ d(24), d(24) ]
+    MonthlyClosing.create!(year: 2026, month: 11, start_date: d(1), end_date: d(30), scheduled_work_minutes: 480,
+                           standard_break_minutes: 60, overtime_warning_hours: 45, closed_by: @admin, closed_at: Time.current)
+    message = "この休暇は締め済みの月度（2026年11月：11/1(日)〜11/30(月)）にかかるため、取り消せません。"
+    assert_equal [ message ], leave.direct_cancellation_blockers(@admin)
+    saved, cancellation = cancel(leave)
+    assert_not saved
+    assert_equal [ message ], cancellation.errors.full_messages
     assert leave.reload.effective?
   end
 
-  test "締めが未実装の今は、締め済みの月度は無い" do
+  test "締めた月度が無ければ、締め済みの月度は無い" do
     assert_nil ClosedPeriodGuard.closed_period_label(d(1), d(30))
   end
 

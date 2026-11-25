@@ -1,0 +1,34 @@
+<%# ヘッダーのベル（F16）。未読の件数のバッジを出し、押すと新しい通知の一覧が開く %>
+<% unread = unread_notification_count %>
+<% notifications = menu_notifications %>
+<details class="notifications-menu" data-controller="dropdown" data-testid="notifications-menu">
+  <summary class="notifications-menu__toggle <%= "is-active" if controller_path.start_with?("notifications") %>"
+           aria-label="<%= unread.positive? ? "通知（未読 #{unread}件）" : "通知（未読はありません）" %>" title="通知" data-testid="notifications-bell">
+    <%= notification_bell_icon %>
+    <% if unread.positive? %>
+      <span class="notifications-menu__badge" aria-hidden="true" data-testid="notifications-badge"><%= notification_badge_label(unread) %></span>
+    <% end %>
+  </summary>
+  <div class="notifications-menu__panel" data-testid="notifications-panel">
+    <div class="notifications-menu__header">
+      <p class="notifications-menu__title">
+        通知<% if unread.positive? %><span class="notifications-menu__count">未読 <%= unread %>件</span><% end %>
+      </p>
+      <% if unread.positive? %>
+        <%= button_to "すべて既読にする", notifications_bulk_reading_path, params: { until_id: latest_notification_id },
+                      class: "button button--ghost button--small", form_class: "notifications-menu__mark-all",
+                      data: { testid: "notifications-menu-read-all" } %>
+      <% end %>
+    </div>
+    <% if notifications.any? %>
+      <ul class="notification-list notification-list--compact" data-testid="notifications-menu-list">
+        <% notifications.each do |notification| %>
+          <li><%= render "notifications/item", notification: notification, compact: true %></li>
+        <% end %>
+      </ul>
+    <% else %>
+      <p class="notifications-menu__empty muted">通知はまだありません。申請の結果やシフトの公開などがあると、ここに届きます。</p>
+    <% end %>
+    <%= link_to "すべての通知を見る", notifications_path, class: "notifications-menu__all", data: { testid: "notifications-menu-all" } %>
+  </div>
+</details>

@@ -17,25 +17,46 @@ module AttendancesHelper
       ("history-row--today" if day.date == today),
       ("history-row--missing" if day.missing_clock_out?),
       ("history-row--empty" unless day.worked?),
-      ("history-row--leave" if leaves.any?(&:effective?)),
-      ("history-row--has-leave" if leaves.any?)
+      # 休暇の期間内でも、休日（土日・祝日）は休暇の日数に数えないので、休暇の日の色にしない
+      ("history-row--leave" if kind == :weekday && leaves.any?(&:effective?)),
+      ("history-row--has-leave" if leaves.any?),
+      ("history-row--has-shift" if day.scheduled?),
+      ("history-row--marked" if day.shift_check.marked?)
     ].compact.join(" ")
   end
 
+  # 「予定」欄：公開済みのシフトの時間帯（「9:00〜18:00」）。公開後に変わったシフトには「変更あり」。シフトが無い日は空欄
+  def attendance_shift_cell(day)
+    shift = day.shift
+    return "" unless shift
+
+    safe_join([ tag.span(shift.published_range_label, class: "history-table__shift-time", data: { testid: "day-shift" }),
+                shift_revised_badge(shift) ].compact, " ")
+  end
+
   # その日の休暇の表示（例：「有給（全日）」「有給（午前半休）」）。承認待ちは「申請中」、取消申請中はその旨を添える。
+  # 休暇の期間内の休日（土日・祝日）は日数に数えないので、休暇のバッジではなく「休日（有給の期間中）」と薄く出す
+  # （月の休暇の日数・休暇の詳細の日数と、見た目をそろえる）。
   # クリックすると休暇の詳細（申請の詳細）を開く
   def attendance_leave_badges(leaves, date)
     date_label = l(date, format: :short_with_day)
+    day_off = HolidayCalendar.day_off?(date)
     safe_join(leaves.map do |leave|
-      if leave.effective?
+      if day_off
+        text = leave.label_on(date)
+        link_to text, approval_request_path(leave), class: "badge badge--leave-day-off history-table__leave",
+                                                    title: "#{leave.description}の期間中の休日です。休日（土日・祝日）は休暇の日数に数えません",
+                                                    "aria-label": "#{date_label} は#{text}。休暇の日数には数えません（休暇の詳細を見る）",
+                                                    data: { testid: "day-leave", leave_status: "day-off" }
+      elsif leave.effective?
         cancelling = leave.pending_cancellation
-        text = cancelling ? "#{leave.day_label}・取消申請中" : leave.day_label
+        text = leave.label_on(date)
         link_to text, approval_request_path(leave), class: "badge badge--leave history-table__leave",
                                                     title: "#{leave.description}（承認済み）",
                                                     "aria-label": "#{date_label} は#{text}（休暇の詳細を見る）",
                                                     data: { testid: "day-leave", leave_status: cancelling ? "cancelling" : "approved" }
       else
-        link_to "#{leave.day_label}・申請中", approval_request_path(leave),
+        link_to leave.label_on(date), approval_request_path(leave),
                 class: "badge badge--leave-pending history-table__leave",
                 title: "#{leave.description}（承認待ち。承認されるまで休暇は確定しません）",
                 "aria-label": "#{date_label} は#{leave.day_label}を申請中（休暇の詳細を見る）",
@@ -60,6 +81,9 @@ module AttendancesHelper
                                                      title: "承認待ちの修正申請があります（承認されるまで記録は変わりません）",
                                                      "aria-label": "#{date_label} は修正申請中（申請の詳細を見る）",
                                                      data: { testid: "pending-correction" }
+    elsif monthly.closed?
+      tag.span("締め済み", class: "muted history-table__closed", title: "締め済みの月度のため、修正申請できません（直す必要がある場合は管理者に連絡してください）",
+                         data: { testid: "closed-day" })
     elsif monthly.correctable?(day.date)
       link_to "修正申請", new_attendance_correction_request_path(date: day.date.iso8601),
               class: "history-table__request-link", "aria-label": "#{date_label} の打刻修正を申請する",

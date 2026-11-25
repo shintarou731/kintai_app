@@ -11,7 +11,7 @@ class AttendancesController < ApplicationController
       period = rules.period_containing(now.to_date)
     end
 
-    @monthly = MonthlyAttendance.new(current_user, period: period, rules: rules, now: now)
+    @monthly = MonthlyAttendance.for_user(current_user, period: period, rules: rules, now: now)
     @current_period = rules.period_containing(now.to_date)
   end
 end

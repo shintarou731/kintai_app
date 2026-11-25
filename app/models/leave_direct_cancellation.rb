@@ -53,7 +53,12 @@ class LeaveDirectCancellation
       @leave_request = leave
       saved = true
     end
-    leave_request.reload unless saved
+    if saved
+      # 取消が確定した後に、休暇の本人へ通知する（通知が作れなくても取消は取り消さない。F16）
+      Notifier.leave_cancelled_by_admin(leave_request, admin: admin, closed_requests: closed_cancellation_requests)
+    else
+      leave_request.reload
+    end
     saved
   rescue ActiveRecord::RecordInvalid => error
     fail_with("休暇を取り消せませんでした（#{error.record.errors.full_messages.to_sentence}）。画面を再読み込みして、今の状態を確認してください。")

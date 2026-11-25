@@ -1,0 +1,22 @@
+<% content_for :title, "シフトパターンの編集" %>
+<% week_params = @week ? { week: @week.iso8601 } : {} %>
+
+<div class="page page--narrow">
+  <%= link_to "← シフトパターンの一覧に戻る", admin_shift_patterns_path(week_params), class: "back-link" %>
+  <header class="page__header">
+    <p class="page__eyebrow">管理・シフト作成</p>
+    <h1 class="page__title">シフトパターンの編集：<%= @pattern.name_in_database %></h1>
+    <p class="page__lead muted">変更しても、すでに作ったシフトは変わりません（これから割り当てるシフトに使われます）。</p>
+  </header>
+
+  <section class="card section">
+    <%= form_with model: @pattern, url: admin_shift_pattern_path(@pattern, week_params), method: :patch,
+                  class: "form", data: { testid: "shift-pattern-form" } do |f| %>
+      <%= render "fields", f: f, pattern: @pattern %>
+      <div class="form__actions">
+        <%= f.submit "変更を保存する", class: "button button--primary", data: { turbo_submits_with: "保存中…" } %>
+        <%= link_to "キャンセル", admin_shift_patterns_path(week_params), class: "button button--ghost" %>
+      </div>
+    <% end %>
+  </section>
+</div>

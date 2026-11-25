@@ -200,4 +200,13 @@ class Admin::EmployeesControllerTest < ActionDispatch::IntegrationTest
     get edit_admin_employee_path(id: User.maximum(:id) + 1000)
     assert_redirected_to root_path
   end
+
+  test "フォームの値を直接送っても、氏名に改行は保存できない" do
+    sign_in_as users(:admin)
+    employee = users(:employee)
+    patch admin_employee_path(employee), params: { user: { name: "従業\n花子", email: employee.email, hired_on: "2024-10-01" } }
+    assert_response :unprocessable_entity
+    assert_equal "従業 花子", employee.reload.name
+    assert_includes response.body, "氏名に改行・タブなどの制御文字は使えません"
+  end
 end

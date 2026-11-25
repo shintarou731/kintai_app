@@ -25,6 +25,9 @@ gem "jbuilder"
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 gem "bcrypt", "~> 3.1.7"
 
+# CSV の書き出し（F15）。Ruby 3.4 から標準添付ではなくなったため明示する [https://github.com/ruby/csv]
+gem "csv", "~> 3.3"
+
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 

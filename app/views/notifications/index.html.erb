@@ -1,0 +1,63 @@
+<% content_for :title, "通知" %>
+
+<div class="page">
+  <header class="page__header page__header--with-actions">
+    <div>
+      <p class="page__eyebrow">通知</p>
+      <h1 class="page__title">通知</h1>
+      <p class="page__lead muted">申請の結果・シフトの公開・有給の付与・残業の警告などのお知らせです（新しい順）。押すと関連する画面へ移り、既読になります。</p>
+    </div>
+    <% if @counts["unread"].positive? %>
+      <div class="page__header-actions">
+        <%= button_to "すべて既読にする", notifications_bulk_reading_path, params: { until_id: @latest_id },
+                      class: "button button--ghost", data: { testid: "notifications-read-all" } %>
+      </div>
+    <% end %>
+  </header>
+
+  <nav class="tabs section" aria-label="未読で絞り込み">
+    <% { "all" => "すべて", "unread" => "未読" }.each do |filter, label| %>
+      <%= link_to notifications_path(filter: (filter == "all" ? nil : filter)),
+                  class: [ "tabs__item", ("is-active" if @filter == filter) ],
+                  "aria-current": (@filter == filter ? "page" : nil), data: { testid: "notifications-filter-#{filter}" } do %>
+        <%= label %> <span class="tabs__count"><%= @counts[filter] %></span>
+      <% end %>
+    <% end %>
+  </nav>
+
+  <% if @notifications.any? %>
+    <div class="card card--flush">
+      <ul class="notification-list" data-testid="notifications-list">
+        <% @notifications.each do |notification| %>
+          <li><%= render "notifications/item", notification: notification %></li>
+        <% end %>
+      </ul>
+    </div>
+
+    <% if @total_pages > 1 %>
+      <nav class="pagination section" aria-label="ページ" data-testid="notifications-pagination">
+        <% if @page > 1 %>
+          <%= link_to "← 新しい通知", notifications_path(filter: (@filter == "all" ? nil : @filter), page: @page - 1),
+                      class: "button button--ghost button--small", rel: "prev", data: { testid: "notifications-prev" } %>
+        <% else %>
+          <span class="button button--ghost button--small is-disabled" aria-hidden="true">← 新しい通知</span>
+        <% end %>
+        <span class="pagination__status" data-testid="notifications-page-status"><%= @page %> / <%= @total_pages %> ページ</span>
+        <% if @page < @total_pages %>
+          <%= link_to "古い通知 →", notifications_path(filter: (@filter == "all" ? nil : @filter), page: @page + 1),
+                      class: "button button--ghost button--small", rel: "next", data: { testid: "notifications-next" } %>
+        <% else %>
+          <span class="button button--ghost button--small is-disabled" aria-hidden="true">古い通知 →</span>
+        <% end %>
+      </nav>
+    <% end %>
+  <% else %>
+    <div class="card empty-state" data-testid="notifications-empty">
+      <% if @filter == "unread" %>
+        <p>未読の通知はありません。</p>
+      <% else %>
+        <p>通知はまだありません。申請の結果やシフトの公開などがあると、ここに届きます。</p>
+      <% end %>
+    </div>
+  <% end %>
+</div>

@@ -31,7 +31,10 @@ class LeaveCancellationRequest < ApprovalRequest
 
   # 申請を保存する。同時に届いた2件目（DB の一意制約で失敗）や、ロック競合もエラーとして false を返す
   def submit
-    save
+    saved = save
+    # 申請が確定した後に、管理者へ通知する（通知が作れなくても申請は取り消さない。F16）
+    Notifier.request_submitted(self) if saved
+    saved
   rescue ActiveRecord::RecordNotUnique
     errors.add(:base, :duplicate_pending)
     false
@@ -41,7 +44,11 @@ class LeaveCancellationRequest < ApprovalRequest
   end
 
   def approval_result_note
-    "休暇を取り消しました（勤怠履歴の表示も消えます）。"
+    note = "休暇を取り消しました（勤怠履歴の表示も消えます）。"
+    leave = leave_request
+    return note unless leave&.leave_paid? && leave.chargeable_days.positive?
+
+    "#{note}有給休暇の残日数に#{LeaveRequest.format_days(leave.chargeable_days)}戻しました。"
   end
 
   def rejection_result_note
@@ -55,6 +62,9 @@ class LeaveCancellationRequest < ApprovalRequest
   # 承認できない理由。承認する直前に、休暇がまだ有効か（他の取消で取り消されていないか）を確かめ直す
   def approval_blockers(now: Time.current)
     leave = LeaveRequest.find(leave_request_id)
+    if (closing = ClosedPeriodGuard.closing_overlapping(leave.target_date, leave.end_date))
+      return [ I18n.t("leave_cancellation_request.approval_blockers.closed_period", period: ClosedPeriodGuard.describe(closing)) ]
+    end
     return [ I18n.t("leave_cancellation_request.approval_blockers.already_cancelled") ] if leave.cancelled?
     return [ I18n.t("leave_cancellation_request.approval_blockers.not_approved", status: leave.status_label) ] unless leave.approved?
 
@@ -109,6 +119,8 @@ class LeaveCancellationRequest < ApprovalRequest
       errors.add(:base, :not_own_leave)
     elsif (blocker = leave.cancellation_blocker)
       errors.add(:base, blocker)
+    elsif (closing = ClosedPeriodGuard.closing_overlapping(leave.target_date, leave.end_date))
+      errors.add(:base, :closed_period, period: ClosedPeriodGuard.describe(closing))
     end
   end
 end

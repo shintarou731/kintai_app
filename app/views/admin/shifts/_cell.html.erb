@@ -1,0 +1,59 @@
+<%# シフト表の1マス（従業員 × 日付）。通常はマスを押すと入力画面を開き、パターンを選んでいるときはそのパターンを割り当てる %>
+<% shift = cell.live_shift %>
+<% removing = cell.removing_shift %>
+<% full_leave = cell.full_day_leave %>
+<% half_leaves = cell.half_day_leaves %>
+<% state = shift ? shift.state : (removing ? :removing : :empty) %>
+<% pattern = board.pattern_for(shift) %>
+<% date_label = l(cell.date, format: :short_with_day) %>
+<% kind = board.day_kind(cell.date) %>
+<td id="shift_cell_<%= cell.user.id %>_<%= cell.date.iso8601 %>"
+    class="shift-cell shift-cell--<%= state %> <%= "shift-cell--leave" if full_leave %> <%= "shift-cell--conflict" if cell.leave_conflict? %> <%= "shift-day--#{kind}" unless kind == :weekday %> <%= "shift-day--today" if cell.date == board.today %>"
+    data-testid="shift-cell" data-user-id="<%= cell.user.id %>" data-date="<%= cell.date.iso8601 %>" data-state="<%= state %>"
+    data-leave="<%= full_leave ? "full" : (half_leaves.any? ? "half" : "") %>">
+  <% content = capture do %>
+    <% if full_leave %>
+      <span class="badge badge--leave shift-cell__leave" data-testid="shift-cell-leave"
+            title="<%= full_leave.description %>（承認済み）">休暇</span>
+      <span class="shift-cell__leave-type"><%= HolidayCalendar.day_off?(cell.date) ? "#{full_leave.leave_type_short_label}の期間中" : full_leave.day_label %></span>
+    <% end %>
+    <% half_leaves.each do |leave| %>
+      <span class="badge badge--leave-pending shift-cell__leave" data-testid="shift-cell-half-leave"
+            title="<%= leave.description %>（承認済み）"><%= leave.day_part_label %></span>
+    <% end %>
+    <% if shift %>
+      <span class="shift-cell__time" data-testid="shift-cell-time"><%= shift.range_label %></span>
+      <span class="shift-cell__meta"><%= [ pattern&.name, shift_break_label(shift.break_minutes) ].compact.join("・") %></span>
+      <% unless state == :published %><%= shift_state_badge(state) %><% end %>
+      <% if state == :changed %>
+        <span class="shift-cell__published" data-testid="shift-cell-published">公開中 <%= shift.published_range_label %></span>
+      <% end %>
+      <% if cell.leave_conflict? %>
+        <span class="shift-cell__warning" data-testid="shift-cell-conflict">休暇の日のシフト</span>
+      <% end %>
+      <% if (half_conflicts = cell.half_day_conflict_leaves).any? %>
+        <span class="shift-cell__warning" data-testid="shift-cell-half-conflict"
+              title="<%= half_conflicts.map { |leave| "#{leave.day_part_label}は#{HalfDayLeaveWindow.label(leave)}を休みとして扱います" }.join("・") %>">半休と重なる</span>
+      <% end %>
+    <% elsif removing %>
+      <s class="shift-cell__time shift-cell__time--removed"><%= removing.published_range_label %></s>
+      <%= shift_state_badge(:removing) %>
+    <% elsif !full_leave %>
+      <span class="shift-cell__add" aria-hidden="true">＋</span>
+    <% end %>
+    <span class="visually-hidden">
+      <%= date_label %> <%= cell.user.name %> さん：<%= shift ? "#{shift.range_label}（#{ShiftsHelper::SHIFT_STATE_BADGES.dig(state, :label)}）" : "シフトなし" %>。
+      <%= brush ? "「#{brush.name}」を割り当てる" : (shift ? "シフトを変更する" : "シフトを登録する") %>
+    </span>
+  <% end %>
+  <% if brush %>
+    <%= button_to admin_shifts_assignments_path,
+                  params: { user_id: cell.user.id, date: cell.date.iso8601, pattern_id: brush.id, lock_version: shift&.lock_version },
+                  class: "shift-cell__button", form_class: "shift-cell__form" do %>
+      <%= content %>
+    <% end %>
+  <% else %>
+    <%= link_to content, shift ? edit_admin_shift_path(shift) : new_admin_shift_path(user_id: cell.user.id, date: cell.date.iso8601),
+                class: "shift-cell__button" %>
+  <% end %>
+</td>

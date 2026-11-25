@@ -35,6 +35,7 @@ class Admin::ApprovalRequests::CancellationsController < Admin::BaseController
   def success_message(cancellation)
     leave = cancellation.leave_request
     message = "#{leave.user.name} さんの #{leave.description}を取り消しました。本人の勤怠履歴の該当日から休暇の表示が消えます。"
+    message += "有給休暇の残日数に#{LeaveRequest.format_days(leave.chargeable_days)}戻しました。" if leave.leave_paid? && leave.chargeable_days.positive?
     message += "承認待ちだった取消申請も、処理済みにしました。" if cancellation.closed_cancellation_requests.any?
     message
   end

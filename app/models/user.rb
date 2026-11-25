@@ -14,6 +14,15 @@ class User < ApplicationRecord
   # 休暇申請と取消申請（approval_requests の一部。削除は approval_requests の dependent に任せる）
   has_many :leave_requests, inverse_of: :user
   has_many :leave_cancellation_requests, inverse_of: :user
+  # 有給休暇の付与（F10）。paid_leave_grants は削除されていない付与だけ（残日数などの計算に使う）。
+  # 削除した付与は removed_paid_leave_grants（履歴の「付与の削除」に出す）。
+  has_many :paid_leave_grants, -> { kept.chronological }, dependent: :destroy, inverse_of: :user
+  has_many :removed_paid_leave_grants, -> { removed.order(:removed_at, :id) }, class_name: "PaidLeaveGrant", dependent: :destroy
+  # シフト（F11）
+  has_many :shifts, dependent: :destroy
+  # アプリ内通知（F16。自分が受け取ったもの）と、残業の警告を送った記録
+  has_many :notifications, foreign_key: :recipient_id, inverse_of: :recipient, dependent: :destroy
+  has_many :overtime_alerts, dependent: :destroy
 
   enum :role, { employee: "employee", admin: "admin" }, default: :employee, validate: true
   enum :employment_type, { full_time: "full_time", part_time: "part_time" }, default: :full_time, validate: true
@@ -32,6 +41,8 @@ class User < ApplicationRecord
   attr_accessor :current_password
 
   validates :name, presence: true, length: { maximum: 50 }
+  # 改行・タブなどの制御文字は氏名に入れない（画面の入力欄では入らないが、フォームの値を直接送ると入りうる。表示や CSV が崩れるため）
+  validates :name, format: { without: /[\p{Cc}\p{Zl}\p{Zp}]/, message: :control_characters }
   validates :email, presence: true,
                     length: { maximum: 255 },
                     format: { with: URI::MailTo::EMAIL_REGEXP, allow_blank: true },

@@ -6,6 +6,7 @@ class SetupsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "ユーザーがいないとき、トップにアクセスすると初期セットアップ画面へ移動する" do
+    PaidLeaveGrant.delete_all # 付与（F10）は従業員を参照するので、先に消す
     User.delete_all
     get root_path
     assert_redirected_to setup_path
@@ -20,12 +21,14 @@ class SetupsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "ユーザーがいないとき、ログイン画面にアクセスしても初期セットアップ画面へ移動する" do
+    PaidLeaveGrant.delete_all # 付与（F10）は従業員を参照するので、先に消す
     User.delete_all
     get login_path
     assert_redirected_to setup_path
   end
 
   test "初期セットアップを完了すると管理者としてログインしホームへ移動する" do
+    PaidLeaveGrant.delete_all # 付与（F10）は従業員を参照するので、先に消す
     User.delete_all
 
     assert_difference -> { User.count }, 1 do
@@ -44,12 +47,14 @@ class SetupsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "role を送っても管理者として作成される（パラメータで役割を変えられない）" do
+    PaidLeaveGrant.delete_all # 付与（F10）は従業員を参照するので、先に消す
     User.delete_all
     post setup_path, params: { user: valid_params[:user].merge(role: "employee") }
     assert User.last.admin?
   end
 
   test "パスワードが8文字未満だと作成できずエラーを表示する" do
+    PaidLeaveGrant.delete_all # 付与（F10）は従業員を参照するので、先に消す
     User.delete_all
 
     assert_no_difference -> { User.count } do
@@ -60,6 +65,7 @@ class SetupsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "パスワード確認が一致しないと作成できない" do
+    PaidLeaveGrant.delete_all # 付与（F10）は従業員を参照するので、先に消す
     User.delete_all
 
     assert_no_difference -> { User.count } do
@@ -70,6 +76,7 @@ class SetupsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "必須項目が空だと作成できない" do
+    PaidLeaveGrant.delete_all # 付与（F10）は従業員を参照するので、先に消す
     User.delete_all
     post setup_path, params: { user: { name: "", email: "", password: "", password_confirmation: "" } }
     assert_response :unprocessable_entity

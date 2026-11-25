@@ -2,6 +2,7 @@ require "application_system_test_case"
 
 class AuthenticationTest < ApplicationSystemTestCase
   test "初期セットアップからログアウト・再ログインまで" do
+    PaidLeaveGrant.delete_all # 付与（F10）は従業員を参照するので、先に消す
     User.delete_all
 
     visit root_path

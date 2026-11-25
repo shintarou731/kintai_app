@@ -20,6 +20,32 @@
         <% end %>
       </dd>
     </div>
+    <% if leave.leave_paid? %>
+      <% paid_account = PaidLeaveAccount.new(leave.user) %>
+      <div>
+        <dt>有給の残日数</dt>
+        <dd data-testid="leave-paid-balance">
+          <% if leave.effective? %>
+            この休暇の分を引いて <%= paid_leave_balance_label(paid_account.balance) %>
+            <% if (sources = paid_leave_usage_sources(paid_account.ledger.usage_for(leave))).present? %>
+              <span class="leave-details__days-off"><%= sources %></span>
+            <% end %>
+          <% elsif leave.pending? %>
+            <% shortfall = leave.paid_leave_shortfall(include_pending: false) %>
+            今は <%= paid_leave_balance_label(paid_account.balance) %>。
+            <% if shortfall.positive? %>
+              <span class="leave-details__shortfall" data-testid="leave-paid-shortfall">残日数が足りません（休暇の日付に使える残り <%= format_leave_days(leave.chargeable_days - shortfall) %>）</span>
+            <% else %>
+              承認されると <%= format_leave_days(paid_account.balance - leave.chargeable_days) %> になります。
+            <% end %>
+          <% elsif leave.cancelled? %>
+            取り消したため残日数に戻しました（今は <%= paid_leave_balance_label(paid_account.balance) %>）
+          <% else %>
+            <%= leave.status_label %>のため、残日数には影響しません（今は <%= paid_leave_balance_label(paid_account.balance) %>）
+          <% end %>
+        </dd>
+      </div>
+    <% end %>
     <% if leave.cancelled? %>
       <div><dt>取消日時</dt><dd data-testid="leave-cancelled-at"><%= l(leave.cancelled_at, format: :long) %></dd></div>
       <div>

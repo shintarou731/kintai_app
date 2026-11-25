@@ -71,6 +71,51 @@
     </p>
   </section>
 
+  <% shift_summary = @shift_summary %>
+  <% today_shift = shift_summary.today_shift %>
+  <% today_check = shift_summary.today_check %>
+  <section class="card section home-shift" aria-labelledby="home-shift-title" data-testid="home-shift">
+    <h2 id="home-shift-title" class="home-shift__title">シフト</h2>
+    <dl class="home-shift__list">
+      <div class="home-shift__item">
+        <dt class="home-shift__label">今日</dt>
+        <dd class="home-shift__value" data-testid="home-today-shift">
+          <% if today_shift %>
+            <span class="home-shift__time"><%= published_shift_range(today_shift) %></span>
+            <span class="home-shift__sub muted"><%= shift_break_label(today_shift.published_break_minutes) %></span>
+            <%= shift_revised_badge(today_shift) %>
+            <%= shift_mark_badges(today_check) %>
+            <%= shift_check_pending_badge(today_check) %>
+            <% today_check.leaves.each do |leave| %>
+              <span class="badge badge--leave" title="<%= leave.description %>（承認済み）"><%= leave.day_label %></span>
+            <% end %>
+            <%= shift_check_basis_note(today_check) %>
+          <% else %>
+            <span class="home-shift__none">シフトなし</span>
+          <% end %>
+        </dd>
+      </div>
+      <div class="home-shift__item">
+        <dt class="home-shift__label">次回</dt>
+        <dd class="home-shift__value" data-testid="home-next-shift">
+          <% if (next_shift = shift_summary.next_shift) %>
+            <span class="home-shift__date"><%= l(next_shift.work_date, format: :short_with_day) %></span>
+            <span class="home-shift__time"><%= published_shift_range(next_shift) %></span>
+            <%= shift_revised_badge(next_shift) %>
+          <% else %>
+            <span class="home-shift__none">予定なし</span>
+          <% end %>
+        </dd>
+      </div>
+    </dl>
+    <% if (ongoing = shift_summary.ongoing_previous_shift) %>
+      <p class="home-shift__ongoing" data-testid="home-ongoing-shift">
+        前日（<%= l(ongoing.work_date, format: :short_with_day) %>）からのシフト <%= published_shift_range(ongoing) %> の途中です。
+      </p>
+    <% end %>
+    <%= link_to "シフトを見る", shifts_path, class: "button button--ghost button--small home-shift__link" %>
+  </section>
+
   <section class="card section" aria-labelledby="today-title" data-testid="today-attendance">
     <h2 id="today-title" class="card__title">
       <% if attendance && attendance.work_date != now.to_date %>
@@ -166,6 +211,37 @@
     <% end %>
   </section>
 
+  <% paid_leave = @paid_leave %>
+  <section class="card section home-paid-leave" aria-labelledby="home-paid-leave-title" data-testid="home-paid-leave">
+    <div class="home-paid-leave__main">
+      <h2 id="home-paid-leave-title" class="home-paid-leave__title">有給休暇</h2>
+      <p class="home-paid-leave__balance" data-testid="home-paid-leave-balance"><%= paid_leave_balance_label(paid_leave.balance) %></p>
+    </div>
+    <p class="home-paid-leave__sub muted">
+      <% if paid_leave.pending_days.positive? %>
+        承認待ち <%= format_leave_days(paid_leave.pending_days) %>（申請できる残り <%= format_leave_days(paid_leave.requestable) %>）
+      <% elsif (expiry = paid_leave.next_expiry) %>
+        <%= l(expiry.first) %> に <%= format_leave_days(expiry.last) %> 失効予定
+      <% elsif !paid_leave.any_grants? %>
+        まだ付与されていません
+      <% end %>
+      <% if paid_leave.shortage? %>
+        <span class="home-paid-leave__alert" data-testid="home-paid-leave-shortage">付与を超えた取得 <%= format_leave_days(paid_leave.shortage) %></span>
+      <% end %>
+    </p>
+    <%= link_to "休暇を申請する・履歴を見る", leave_requests_path, class: "button button--ghost button--small home-paid-leave__link" %>
+  </section>
+
+  <% if (closed_open = time_clock.closed_open_attendance) %>
+    <section class="notice-box notice-box--warning section" role="note" data-testid="closed-open-attendance">
+      <p class="notice-box__title"><%= l(closed_open.work_date, format: :short_with_day) %> の勤務は締め済みのため、退勤を記録できません</p>
+      <p class="notice-box__body">
+        <%= format_clock_time(closed_open.clock_in_at) %> に出勤した勤務の勤務日は、締め済みの月度に含まれます（締めた後は打刻も申請もできません）。
+        実際の退勤時刻を管理者に伝えてください。今日の出勤は、ふだんどおり打刻できます。
+      </p>
+    </section>
+  <% end %>
+
   <% missing = @missing_clock_outs %>
   <% if missing.any? %>
     <% rules = WorkRules.current %>
@@ -201,14 +277,17 @@
     <h2 class="card__title">アカウント</h2>
     <ul class="quick-links__list">
       <li><%= link_to "今月の勤怠履歴を見る", attendances_path %></li>
+      <li><%= link_to "シフトを見る", shifts_path %></li>
       <li><%= link_to "申請の一覧を見る", approval_requests_path %></li>
       <li><%= link_to "パスワードを変更する", edit_password_path %></li>
       <% if current_user.admin? %>
+        <li><%= link_to "今日の出勤状況を見る（ダッシュボード）", admin_dashboard_path, data: { testid: "home-dashboard-link" } %></li>
         <li>
           <%= link_to "申請を承認する", admin_approval_requests_path, data: { testid: "home-approvals-link" } %>
           <% if pending_approval_count.positive? %><span class="muted">（承認待ち <%= pending_approval_count %>件）</span><% end %>
         </li>
         <li><%= link_to "従業員を管理する", admin_employees_path %></li>
+        <li><%= link_to "遅刻・早退・欠勤を確認する（予実の確認）", admin_shift_reports_path %></li>
         <li><%= link_to "勤務ルールを設定する", admin_work_rule_setting_path %></li>
       <% end %>
     </ul>

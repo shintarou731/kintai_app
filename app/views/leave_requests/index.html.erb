@@ -9,12 +9,17 @@
     <p class="page__lead muted">休暇の申請と、あなたの休暇の一覧です。承認されると、勤怠履歴の該当日に「有給（全日）」のように表示されます。</p>
   </header>
 
+  <%= render "paid_leaves/summary", account: @paid_leave %>
+
   <section class="card section" aria-labelledby="leave-form-title">
     <h2 id="leave-form-title" class="card__title">休暇を申請する</h2>
 
     <%= form_with model: leave, url: leave_requests_path, class: "form leave-form",
                   data: { controller: "leave-form", testid: "leave-form",
-                          leave_form_holidays_value: leave_form_holidays(today).to_json } do |f| %>
+                          leave_form_holidays_value: leave_form_holidays(today).to_json,
+                          leave_form_min_date_value: (today - LeaveRequest::SUBMITTABLE_SPAN).iso8601,
+                          leave_form_max_date_value: (today + LeaveRequest::SUBMITTABLE_SPAN).iso8601,
+                          leave_form_paid_requestable_value: @paid_leave.requestable.to_f } do |f| %>
       <%= render "shared/form_errors", record: leave %>
 
       <fieldset class="choice-group" data-testid="leave-type-choices">
@@ -22,7 +27,8 @@
         <div class="choice-group__items">
           <% LeaveRequest.leave_type_options.each do |label, value| %>
             <label class="choice">
-              <%= f.radio_button :leave_type, value, class: "choice__input" %>
+              <%= f.radio_button :leave_type, value, class: "choice__input",
+                                                     data: { action: "leave-form#sync", leave_form_target: "leaveType" } %>
               <span class="choice__label"><%= label %></span>
             </label>
           <% end %>
@@ -49,18 +55,19 @@
           <div class="date-range__field">
             <%= f.label :target_date, "開始日", class: "date-range__caption" %>
             <%= f.date_field :target_date, class: "form__input", required: true,
+                                           min: today - LeaveRequest::SUBMITTABLE_SPAN, max: today + LeaveRequest::SUBMITTABLE_SPAN,
                                            data: { action: "leave-form#sync", leave_form_target: "start" } %>
           </div>
           <span class="date-range__separator" aria-hidden="true">〜</span>
           <div class="date-range__field">
             <%= f.label :end_date, "終了日", class: "date-range__caption" %>
-            <%= f.date_field :end_date, class: "form__input",
+            <%= f.date_field :end_date, class: "form__input", max: today + LeaveRequest::SUBMITTABLE_SPAN,
                                         data: { action: "leave-form#sync", leave_form_target: "end" } %>
           </div>
         </div>
         <p class="form__hint">
           1日だけ休む場合は、開始日と終了日を同じ日にします（終了日が空欄なら開始日と同じ日になります）。
-          過去の日付（1年前まで）も申請できます。1回の申請は<%= LeaveRequest::MAX_PERIOD_DAYS %>日までです。
+          申請できるのは <%= l(today - LeaveRequest::SUBMITTABLE_SPAN) %>〜<%= l(today + LeaveRequest::SUBMITTABLE_SPAN) %> の日付です（過去の日付も1年前まで申請できます）。1回の申請は<%= LeaveRequest::MAX_PERIOD_DAYS %>日までです。
         </p>
         <p class="leave-form__days" aria-live="polite" data-leave-form-target="days" data-testid="leave-days-preview"></p>
       </div>
@@ -78,6 +85,7 @@
       </div>
       <p class="form__hint">
         既に承認済み・承認待ちの休暇と期間が重なる日は申請できません。日数は休日（土日・祝日）を除いて数えます（半休は0.5日）。有給休暇は、休日だけの期間では申請できません。
+        有給休暇は、申請できる残り（承認待ちの有給も差し引いた残日数）までしか申請できません。
         承認済みの休暇を取りやめたいときは、開始日の前日までに、休暇の詳細から「取消申請」を出してください。開始日が今日または過去の休暇の取消は、管理者に依頼してください。
       </p>
     <% end %>
@@ -142,4 +150,6 @@
     </div>
   <% end %>
   <p class="summary__note muted">承認待ちの休暇の取り下げ・承認済みの休暇の取消申請は、各休暇の「詳細」から行えます。申請の結果は「申請」画面にも表示されます。</p>
+
+  <%= render "paid_leaves/history", account: @paid_leave %>
 </div>

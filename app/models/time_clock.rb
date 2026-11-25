@@ -5,6 +5,12 @@
 # - :working     … 出勤して退勤していない（退勤・休憩開始が押せる）。日付をまたいだ勤務も含む
 # - :on_break    … 勤務中で休憩している（休憩終了だけ押せる。退勤はできない）
 # - :finished    … 今日の勤務は退勤済み（同じ日に2回目の出勤はできない）
+#
+# 締め済み（F14）の月度に入る勤務日の勤務には、打刻できない（ClosedPeriodGuard）。
+# - 退勤していない勤務の勤務日が締め済みの月度に入る（例：11/30 22:00 に出勤し、退勤する前に11月が締められた）場合、
+#   その勤務は「今の勤務」として扱わない（#closed_open_attendance）。退勤・休憩は記録できず、今日の出勤はできる。
+# - 今日が締め済みの月度に入る場合（開発環境の DEV_NOW などで過去の日付にしたとき）は、出勤できない。
+# - 判定と書き込みは同じトランザクションの中で行う（締めと同時に届いても、締めた後の勤務を書き換えない）。
 class TimeClock
   # 出勤からこの時間を過ぎても退勤の打刻が無い勤務は、ホーム画面から退勤できなくなり、
   # 現在の勤務としては扱わない（翌日以降の出勤を妨げないため）。
@@ -46,10 +52,18 @@ class TimeClock
   def current_attendance
     return @current_attendance if defined?(@current_attendance)
 
-    @current_attendance = user.attendances.without_clock_out
-                              .where(clock_in_at: self.class.earliest_open_clock_in(now)..now)
-                              .includes(:breaks)
-                              .order(clock_in_at: :desc).first
+    candidate = user.attendances.without_clock_out
+                    .where(clock_in_at: self.class.earliest_open_clock_in(now)..now)
+                    .includes(:breaks)
+                    .order(clock_in_at: :desc).first
+    @closed_open_attendance = candidate && ClosedPeriodGuard.closing_overlapping(candidate.work_date) ? candidate : nil
+    @current_attendance = @closed_open_attendance ? nil : candidate
+  end
+
+  # 退勤していない（退勤できる期限内の）勤務のうち、勤務日が締め済みの月度に入るため打刻できない勤務（無ければ nil）
+  def closed_open_attendance
+    current_attendance
+    @closed_open_attendance
   end
 
   # 今日を勤務日とする勤務
@@ -104,7 +118,10 @@ class TimeClock
   # 出勤を打刻し、作成した勤怠を返す。打刻できない状態なら TimeClock::Error
   def clock_in!
     ensure_can_clock_in!
-    user.attendances.create!(work_date: today, clock_in_at: now)
+    Attendance.transaction(requires_new: true) do
+      ensure_not_closed!(today, "出勤")
+      user.attendances.create!(work_date: today, clock_in_at: now)
+    end
   rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
     # ほぼ同時に届いた2回目の出勤（二重クリックなど）。1件目だけが記録されている
     reset_cache
@@ -122,15 +139,21 @@ class TimeClock
 
     # 「まだ退勤していない」かつ「休憩中でない」ことを条件に1回の UPDATE で書き込む。
     # 二重クリックで2回届いても、書き込まれるのは最初の1回だけ。休憩開始と同時に届いても休憩中には退勤しない。
-    updated = Attendance.where(id: attendance.id, clock_out_at: nil)
-                        .where.not(id: AttendanceBreak.ongoing.select(:attendance_id))
-                        .update_all(clock_out_at: now, updated_at: now)
+    updated = Attendance.transaction(requires_new: true) do
+      ensure_not_closed!(attendance.work_date, "退勤")
+      Attendance.where(id: attendance.id, clock_out_at: nil)
+                .where.not(id: AttendanceBreak.ongoing.select(:attendance_id))
+                .update_all(clock_out_at: now, updated_at: now)
+    end
     if updated.zero?
       reset_cache
       raise Error, cannot_clock_out_message(attendance_id)
     end
 
     attendance.reload
+    # 退勤で勤務の時間が決まったので、残業の警告（警告ラインの 80%・100%）を判定する。失敗しても退勤は取り消さない（F16）
+    OvertimeAlert.check(user, date: attendance.work_date, now: now)
+    attendance
   end
 
   # 休憩開始を打刻し、作成した休憩を返す。打刻できない状態なら TimeClock::Error
@@ -139,6 +162,7 @@ class TimeClock
     attendance = current_attendance
 
     Attendance.transaction(requires_new: true) do
+      ensure_not_closed!(attendance.work_date, "休憩開始")
       attendance_break = attendance.breaks.create!(started_at: now)
       # 退勤と同時に届いた場合に備え、まだ退勤していないことを書き込みで確かめる（退勤済みなら取り消す）
       raise Conflict if Attendance.where(id: attendance.id, clock_out_at: nil).update_all(updated_at: now).zero?
@@ -158,7 +182,10 @@ class TimeClock
     raise Error, cannot_end_break_message unless attendance_break
 
     # 「まだ終わっていない」ことを条件に1回の UPDATE で書き込む（二重クリックでも最初の1回だけ）
-    updated = AttendanceBreak.where(id: attendance_break.id, ended_at: nil).update_all(ended_at: now, updated_at: now)
+    updated = Attendance.transaction(requires_new: true) do
+      ensure_not_closed!(attendance_break.attendance.work_date, "休憩終了")
+      AttendanceBreak.where(id: attendance_break.id, ended_at: nil).update_all(ended_at: now, updated_at: now)
+    end
     if updated.zero?
       reset_cache
       raise Error, cannot_end_break_message
@@ -168,6 +195,18 @@ class TimeClock
   end
 
   private
+
+  # 勤務日 date が締め済みの月度に入るなら TimeClock::Error（書き込みと同じトランザクションの中で呼ぶ）
+  def ensure_not_closed!(date, action)
+    closing = ClosedPeriodGuard.closing_overlapping(date)
+    return unless closing
+
+    raise Error, closed_message(date, closing, action)
+  end
+
+  def closed_message(date, closing, action)
+    "#{I18n.l(date, format: :short_with_day)} の勤務は#{ClosedPeriodGuard.describe(closing)}に含まれるため、#{action}を記録できません。"       "記録を直す必要がある場合は、管理者に連絡してください。"
+  end
 
   def ensure_can_clock_in!
     case state
@@ -179,6 +218,10 @@ class TimeClock
   end
 
   def ensure_can_start_break!
+    if (closed = closed_open_attendance)
+      raise Error, closed_message(closed.work_date, ClosedPeriodGuard.closing_overlapping(closed.work_date), "休憩開始")
+    end
+
     case state
     when :not_started
       raise Error, "出勤していないため、休憩を開始できません。先に出勤を打刻してください。"
@@ -190,6 +233,9 @@ class TimeClock
   end
 
   def cannot_clock_out_message(attendance_id)
+    if (closed = closed_open_attendance)
+      return closed_message(closed.work_date, ClosedPeriodGuard.closing_overlapping(closed.work_date), "退勤")
+    end
     return "休憩中のため、退勤できません。先に「休憩終了」を押してください。" if state == :on_break
     return "退勤を記録できませんでした。画面を再読み込みしてください。" if state == :working
 
@@ -208,6 +254,10 @@ class TimeClock
   end
 
   def cannot_end_break_message
+    if (closed = closed_open_attendance)
+      return closed_message(closed.work_date, ClosedPeriodGuard.closing_overlapping(closed.work_date), "休憩終了")
+    end
+
     case state
     when :working
       last_break = current_attendance.finished_breaks.max_by(&:ended_at)
@@ -227,6 +277,7 @@ class TimeClock
 
   def reset_cache
     remove_instance_variable(:@current_attendance) if defined?(@current_attendance)
+    remove_instance_variable(:@closed_open_attendance) if defined?(@closed_open_attendance)
     remove_instance_variable(:@today_attendance) if defined?(@today_attendance)
   end
 

@@ -37,6 +37,7 @@ class AttendanceCorrectionRequest < ApprovalRequest
 
   before_validation :apply_inputs, on: :create
   validate :target_date_must_not_be_in_future, on: :create
+  validate :target_date_must_not_be_closed, on: :create
   validate :times_must_be_consistent, on: :create
   validate :must_differ_from_current_record, on: :create
   validate :must_not_duplicate_pending, on: :create
@@ -130,7 +131,10 @@ class AttendanceCorrectionRequest < ApprovalRequest
 
   # 申請を保存する。同時に届いた2件目（DB の一意制約で失敗）や、ロック競合もエラーとして false を返す
   def submit
-    save
+    saved = save
+    # 申請が確定した後に、管理者へ通知する（通知が作れなくても申請は取り消さない。F16）
+    Notifier.request_submitted(self) if saved
+    saved
   rescue ActiveRecord::RecordNotUnique
     errors.add(:base, :duplicate_pending)
     false
@@ -206,6 +210,10 @@ class AttendanceCorrectionRequest < ApprovalRequest
   # 承認できない理由。承認する直前の記録で、申請した後の変化（前日・翌日の勤務、ホームでの打刻、
   # 他の申請の承認）と矛盾しないかを確かめ直す
   def approval_blockers(now: Time.current)
+    if (closing = ClosedPeriodGuard.closing_overlapping(target_date))
+      return [ blocker(:closed_period, period: ClosedPeriodGuard.describe(closing)) ]
+    end
+
     plan = approval_plan
     messages = blockers_for_kept_records(plan)
     messages.concat(blockers_for_neighbor_days(plan))
@@ -329,6 +337,12 @@ class AttendanceCorrectionRequest < ApprovalRequest
     return if target_date.nil?
 
     errors.add(:target_date, :in_future) if target_date > now.to_date
+  end
+
+  # 締め済み（F14）の月度の日は申請できない（作成と同じトランザクションの中で確かめる）
+  def target_date_must_not_be_closed
+    closing = ClosedPeriodGuard.closing_overlapping(target_date)
+    errors.add(:base, :closed_period, period: ClosedPeriodGuard.describe(closing)) if closing
   end
 
   def times_must_be_consistent

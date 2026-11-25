@@ -63,7 +63,7 @@ class LeaveApprovalTest < ActiveSupport::TestCase
     assert_equal NOW, leave.reviewed_at
     assert_equal "了解しました", leave.review_comment
     assert_includes LeaveRequest.effective, leave
-    assert_equal "勤怠履歴の該当日に「有給（全日）」と表示されます。", leave.approval_result_note
+    assert_equal "勤怠履歴の該当日に「有給（全日）」と表示されます。有給休暇の残日数から2日引きました。", leave.approval_result_note
   end
 
   test "休暇申請を却下するとコメントが必須で、休暇は有効にならない" do

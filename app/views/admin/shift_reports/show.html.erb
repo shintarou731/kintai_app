@@ -1,0 +1,95 @@
+<% monthly = @monthly %>
+<% period = monthly.period %>
+<% today = monthly.today %>
+<% user = @user %>
+<% content_for :title, "予実の確認：#{user.name}（#{period.label}）" %>
+
+<div class="page">
+  <%= link_to "← 予実の確認に戻る（#{period.label}）", admin_shift_reports_path(month: period.to_param), class: "back-link" %>
+  <header class="page__header page__header--with-actions history-header">
+    <div>
+      <p class="page__eyebrow">管理・予実の確認</p>
+      <h1 class="page__title" data-testid="report-user-title">
+        <%= user.name %> さん：<%= period.label %>
+        <% unless user.active? %><span class="badge badge--muted">無効</span><% end %>
+      </h1>
+      <p class="history-header__range muted">
+        <span data-testid="period-range"><%= l(period.start_date, format: :short_with_day) %>〜<%= l(period.end_date, format: :short_with_day) %></span>
+        <%= period_basis_note(period) %>
+      </p>
+    </div>
+    <%= render "month_nav", period: period, current_period: @current_period,
+                            path_builder: ->(month) { admin_shift_report_path(user, { month: month }.compact) } %>
+  </header>
+
+  <section class="card section" aria-labelledby="user-totals-title" data-testid="report-user-totals">
+    <h2 id="user-totals-title" class="card__title">この<%= period.unit %>の回数</h2>
+    <dl class="summary">
+      <div class="summary__item">
+        <dt class="summary__label">シフト / 出勤</dt>
+        <dd class="summary__value"><%= monthly.scheduled_days_count %><span class="summary__unit">日</span> / <%= monthly.working_days_count %><span class="summary__unit">日</span></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">遅刻</dt>
+        <dd class="summary__value" data-testid="user-late"><%= monthly.late_count %><span class="summary__unit">回</span></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">早退</dt>
+        <dd class="summary__value" data-testid="user-early-leave"><%= monthly.early_leave_count %><span class="summary__unit">回</span></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">欠勤</dt>
+        <dd class="summary__value" data-testid="user-absence"><%= monthly.absence_count %><span class="summary__unit">回</span></dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="section" aria-labelledby="user-days-title">
+    <h2 id="user-days-title" class="section__title">日ごとの予定と実績</h2>
+    <% rows = monthly.days.select { |day| day.scheduled? || day.worked? } %>
+    <% if rows.any? %>
+      <div class="card card--flush">
+        <table class="table table--responsive shift-report-days" data-testid="report-days">
+          <thead>
+            <tr>
+              <th scope="col">日付</th>
+              <th scope="col">予定（シフト）</th>
+              <th scope="col">出勤</th>
+              <th scope="col">退勤</th>
+              <th scope="col">判定</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.each do |day| %>
+              <% check = day.shift_check %>
+              <tr data-testid="report-day" data-date="<%= day.date.iso8601 %>" class="shift-report-days__row shift-report-days__row--<%= day.day_kind %>">
+                <td data-label="日付" class="table__primary">
+                  <%= l(day.date, format: :short_with_day) %>
+                  <%= attendance_holiday_label(day) %>
+                  <% if day.date == today %><span class="badge badge--accent">今日</span><% end %>
+                </td>
+                <td data-label="予定" data-column="shift">
+                  <% if day.shift %>
+                    <%= published_shift_range(day.shift) %> <%= shift_revised_badge(day.shift) %>
+                  <% else %>
+                    <span class="muted">シフトなし</span>
+                  <% end %>
+                </td>
+                <td data-label="出勤" data-column="clock-in"><%= format_clock_time(day.attendance&.clock_in_at, placeholder: "—") %></td>
+                <td data-label="退勤" data-column="clock-out"><%= day.worked? ? attendance_clock_out_cell(day) : "—" %></td>
+                <td data-label="判定" data-column="marks"><%= shift_check_summary(check) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <div class="card empty-state" data-testid="report-days-empty">
+        <p>この<%= period.unit %>は、公開済みのシフトも勤怠もありません。</p>
+      </div>
+    <% end %>
+    <p class="summary__note muted">
+      公開済みのシフトがある日と、勤怠がある日だけを表示します（下書きのシフトは比べません）。
+    </p>
+  </section>
+</div>

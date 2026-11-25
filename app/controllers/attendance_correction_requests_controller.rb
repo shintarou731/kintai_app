@@ -30,6 +30,9 @@ class AttendanceCorrectionRequestsController < ApplicationController
     elsif @target_date > Date.current
       redirect_to attendances_path(month: WorkRules.current.period_containing(@target_date).to_param),
                   alert: "未来の日付（#{date_label(@target_date)}）は修正申請できません。今日までの日付を選んでください。"
+    elsif (closing = ClosedPeriodGuard.closing_overlapping(@target_date))
+      redirect_to attendances_path(month: closing.to_param_month),
+                  alert: "#{date_label(@target_date)} は#{ClosedPeriodGuard.describe(closing)}に含まれるため、修正申請できません。記録を直す必要がある場合は、管理者に連絡してください。"
     elsif (pending = current_user.attendance_correction_requests.pending.find_by(target_date: @target_date))
       redirect_to approval_request_path(pending),
                   alert: "#{date_label(@target_date)} にはすでに承認待ちの修正申請があります。内容を変えたい場合は、この申請を取り下げてから出し直してください。"

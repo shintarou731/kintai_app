@@ -144,4 +144,27 @@ class Admin::WorkRuleSettingsControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-testid='closing-day-periods'] table.table--responsive"
     assert_select "[data-testid='closing-day-periods'] td[data-label='期間']", 4
   end
+
+  test "警告ラインを下げると、全員の今月度の残業の警告を判定し直し、超えた段階の通知が届く（F16）" do
+    travel_to Time.zone.local(2026, 11, 25, 18, 0)
+    employee = users(:employee)
+    # 11/24 に 9:00〜20:00（休憩なし・実働 11:00・残業 3:00）
+    Attendance.create!(user: employee, work_date: Date.new(2026, 11, 24), clock_in_at: Time.zone.local(2026, 11, 24, 9),
+                       clock_out_at: Time.zone.local(2026, 11, 24, 20))
+    sign_in_as users(:admin)
+
+    patch admin_work_rule_setting_path, params: valid_params(overtime_warning_hours: "45")
+    assert_equal 0, Notification.where(kind: "overtime_alert").count
+
+    patch admin_work_rule_setting_path, params: valid_params(overtime_warning_hours: "3")
+    assert_redirected_to admin_work_rule_setting_path
+    assert_equal [ 80 ], OvertimeAlert.where(user: employee).pluck(:level), "3:00 はちょうど 100% なので、80% だけ"
+    assert_equal 1, Notification.where(recipient: employee, kind: "overtime_alert").count
+    assert_equal 1, Notification.where(recipient: users(:admin), kind: "overtime_alert").count
+
+    # 残業に関わらない設定（標準の休憩時間）だけの変更では判定しない
+    OvertimeAlert.delete_all
+    patch admin_work_rule_setting_path, params: valid_params(overtime_warning_hours: "3", standard_break_time: "0:45")
+    assert_equal 0, OvertimeAlert.count
+  end
 end

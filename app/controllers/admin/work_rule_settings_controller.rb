@@ -1,5 +1,8 @@
 # 勤務ルール設定：1日の所定労働時間・標準の休憩時間・締め日・残業時間の警告ラインを表示・保存する
 class Admin::WorkRuleSettingsController < Admin::BaseController
+  # 残業の計算や警告ラインに関わる設定（変えたら残業の警告を判定し直す）
+  OVERTIME_RELATED_ATTRIBUTES = %w[scheduled_work_minutes closing_day overtime_warning_hours].freeze
+
   before_action :set_setting
 
   def show
@@ -16,6 +19,7 @@ class Admin::WorkRuleSettingsController < Admin::BaseController
     @setting.updated_by = current_user
 
     if save_setting
+      check_overtime_alerts
       redirect_to admin_work_rule_setting_path, notice: saved_message
     else
       render :show, status: :unprocessable_entity
@@ -37,6 +41,14 @@ class Admin::WorkRuleSettingsController < Admin::BaseController
     @setting = WorkRuleSetting.current
     @setting.assign_attributes(attributes.merge("updated_by" => current_user))
     @setting.save
+  end
+
+  # 残業の計算や警告ラインに関わる設定（所定労働時間・締め日・警告ライン）を変えたら、全員の今月度の残業の警告を判定し直す。
+  # 警告ラインを下げて超えた人には、まだ送っていない段階の通知が届く。失敗しても設定の保存は取り消さない（F16）
+  def check_overtime_alerts
+    return unless (@setting.saved_changes.keys & OVERTIME_RELATED_ATTRIBUTES).any?
+
+    OvertimeAlert.check_all
   end
 
   def saved_message

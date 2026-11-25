@@ -1,0 +1,66 @@
+<% content_for :title, "シフトパターン" %>
+<% back_week = @week || ShiftBoard.week_start_for(Date.current) %>
+
+<div class="page page--narrow">
+  <%= link_to "← シフト表に戻る", admin_shifts_path(week: back_week.iso8601), class: "back-link" %>
+  <header class="page__header">
+    <p class="page__eyebrow">管理・シフト作成</p>
+    <h1 class="page__title">シフトパターン</h1>
+    <p class="page__lead muted">
+      よく使う時間帯を登録しておくと、シフト表の「パターンで割り当て」で選んで、マスを押すだけで割り当てられます。
+      パターンを変更・削除しても、すでに作ったシフトは変わりません。
+    </p>
+  </header>
+
+  <section class="section" aria-labelledby="patterns-title" data-testid="shift-patterns">
+    <h2 id="patterns-title" class="section__title">登録済みのパターン（<%= @patterns.size %>件）</h2>
+    <% if @patterns.any? %>
+      <div class="card card--flush">
+        <table class="table table--responsive shift-patterns-table" data-testid="shift-patterns-table">
+          <thead>
+            <tr>
+              <th scope="col">パターン名</th>
+              <th scope="col">時間帯</th>
+              <th scope="col">休憩</th>
+              <th scope="col">実働の予定</th>
+              <th scope="col"><span class="visually-hidden">操作</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @patterns.each do |pattern| %>
+              <tr id="<%= dom_id(pattern) %>" data-testid="shift-pattern-row">
+                <td data-label="パターン名" class="table__primary table__wrap"><%= pattern.name %></td>
+                <td data-label="時間帯" data-column="range"><%= Shift.range_label(pattern.start_minute, pattern.end_minute) %></td>
+                <td data-label="休憩"><%= shift_break_label(pattern.break_minutes) %></td>
+                <td data-label="実働の予定"><%= format_duration(pattern.scheduled_work_minutes) %></td>
+                <td class="table__actions shift-patterns-table__actions">
+                  <%= link_to "編集", edit_admin_shift_pattern_path(pattern, @week ? { week: @week.iso8601 } : {}), class: "button button--ghost button--small",
+                                                                                                                   "aria-label": "#{pattern.name} を編集" %>
+                  <%= button_to "削除", admin_shift_pattern_path(pattern, @week ? { week: @week.iso8601 } : {}), method: :delete,
+                                class: "button button--ghost button--small", form_class: "shift-patterns-table__delete",
+                                form: { data: { turbo_confirm: "シフトパターン「#{pattern.name}」を削除します。すでに作ったシフトは変わりません。よろしいですか？" } },
+                                "aria-label": "#{pattern.name} を削除" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <div class="card empty-state" data-testid="shift-patterns-empty">
+        <p>まだシフトパターンはありません。下のフォームから登録してください（例：早番 9:00〜18:00、遅番 13:00〜22:00）。</p>
+      </div>
+    <% end %>
+  </section>
+
+  <section class="card section" aria-labelledby="pattern-form-title">
+    <h2 id="pattern-form-title" class="card__title card__title--small">パターンを登録する</h2>
+    <%= form_with model: @pattern, url: admin_shift_patterns_path(@week ? { week: @week.iso8601 } : {}), method: :post,
+                  class: "form", data: { testid: "shift-pattern-form" } do |f| %>
+      <%= render "fields", f: f, pattern: @pattern %>
+      <div class="form__actions">
+        <%= f.submit "登録する", class: "button button--primary", data: { turbo_submits_with: "登録中…" } %>
+      </div>
+    <% end %>
+  </section>
+</div>

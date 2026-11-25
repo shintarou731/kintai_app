@@ -79,17 +79,19 @@ module ApprovalRequestsHelper
 
   # 日数（Rational など）を「3日」「1.5日」の形にする
   def format_leave_days(days)
-    value = days.to_r
-    number = value.denominator == 1 ? value.to_i.to_s : format("%.1f", value.to_f)
-    "#{number}日"
+    LeaveRequest.format_days(days)
   end
 
   # 承認したときに何が起きるかの説明（承認・却下のフォームの下に出す）
   def approval_effect_note(approval_request)
     case approval_request
     when AttendanceCorrectionRequest then "承認すると、勤怠記録が上の「申請内容」に置き換わります。"
-    when LeaveRequest then "承認すると、休暇が確定し、本人の勤怠履歴の該当日に「#{approval_request.day_label}」と表示されます。"
-    when LeaveCancellationRequest then "承認すると、この休暇は取り消され、勤怠履歴の表示も消えます。"
+    when LeaveRequest
+      note = "承認すると、休暇が確定し、本人の勤怠履歴の該当日に「#{approval_request.day_label}」と表示されます。"
+      approval_request.leave_paid? ? "#{note}有給休暇の残日数から#{format_leave_days(approval_request.chargeable_days)}引かれます。" : note
+    when LeaveCancellationRequest
+      note = "承認すると、この休暇は取り消され、勤怠履歴の表示も消えます。"
+      approval_request.leave_request&.leave_paid? ? "#{note}有給休暇の残日数は#{format_leave_days(approval_request.leave_request.chargeable_days)}戻ります。" : note
     else "承認すると、申請内容が反映されます。"
     end
   end

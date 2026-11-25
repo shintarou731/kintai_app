@@ -1,0 +1,22 @@
+<%# 締め済み（F14）の月度・締め済みの月度に合わせて期間を調整した月度の説明。勤怠履歴と、管理者の日別の勤怠で使う %>
+<% period = monthly.period %>
+<% if monthly.closed? %>
+  <% closing = monthly.closing %>
+  <section class="notice-box notice-box--closed section" role="note" data-testid="closed-period-notice">
+    <p class="notice-box__title"><%= closing.label %>は締め済みです（<%= l(closing.closed_at, format: :short) %>）</p>
+    <p class="notice-box__body">
+      締めた時点の値で表示しています（1日の所定労働時間 <%= format_duration(closing.scheduled_work_minutes) %>・<%= WorkRuleSetting.closing_day_label(closing.closing_day) %>締め・警告ライン <%= closing.overtime_warning_hours %>時間）。
+      締めた後に勤務ルールを変えても、この<%= period.unit %>の期間・時間・回数は変わりません。
+      <% if admin_view %>
+        この月度の勤怠は、直接修正も申請の承認もできません。直す必要がある場合は、月次集計で締めを解除してください。
+      <% else %>
+        この<%= period.unit %>の日は、修正申請・休暇の申請ができません。記録を直す必要がある場合は、管理者に連絡してください。
+      <% end %>
+    </p>
+  </section>
+<% elsif period.adjusted? %>
+  <p class="history-progress section" data-testid="adjusted-period-note">
+    締め日どおりなら <%= l(period.nominal_start_date, format: :short_with_day) %>〜<%= l(period.nominal_end_date, format: :short_with_day) %> ですが、
+    となりの締め済みの月度と重なったりすき間が空いたりしないように、<%= l(period.start_date, format: :short_with_day) %>〜<%= l(period.end_date, format: :short_with_day) %> にしています。
+  </p>
+<% end %>

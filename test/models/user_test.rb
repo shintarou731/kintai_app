@@ -57,6 +57,7 @@ class UserTest < ActiveSupport::TestCase
 
   test "setup_required? はユーザーがいないときだけ true" do
     assert_not User.setup_required?
+    PaidLeaveGrant.delete_all # 付与（F10）は従業員を参照するので、先に消す
     User.delete_all
     assert User.setup_required?
   end
@@ -184,5 +185,17 @@ class UserTest < ActiveSupport::TestCase
     assert_nil User.authenticate_by_credentials("nobody@example.com", "password123")
     assert_nil User.authenticate_by_credentials("", "")
     assert_nil User.authenticate_by_credentials(nil, nil)
+  end
+
+  test "氏名に改行・タブなどの制御文字は使えない（前後の空白・改行は取り除く）" do
+    [ "山田\n太郎", "山田\r太郎", "山田\t太郎", "山田\u0000太郎", "山田 太郎" ].each do |name|
+      user = User.new(name: name, email: "ctrl@example.com", password: "password123")
+      assert_not user.valid?, name.inspect
+      assert_includes user.errors.full_messages, "氏名に改行・タブなどの制御文字は使えません"
+    end
+    user = User.new(name: "  山田 太郎\n", email: "ctrl@example.com", password: "password123")
+    assert user.valid?, user.errors.full_messages.inspect
+    assert_equal "山田 太郎", user.name
+    assert User.new(name: "山田　太郎", email: "ctrl@example.com", password: "password123").valid?, "全角の空白は使える"
   end
 end

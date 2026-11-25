@@ -10,7 +10,29 @@ ja:
       attendance_correction_break: 申請する休憩
       leave_request: 休暇申請
       leave_cancellation_request: 休暇取消申請
+      paid_leave_grant: 有給休暇の付与
+      shift: シフト
+      shift_pattern: シフトパターン
+      shift_publication: シフトの公開
     attributes:
+      shift:
+        user: 従業員
+        work_date: 日付
+        start_time: 開始時刻
+        end_time: 終了時刻
+        break_minutes: 休憩時間
+        leave_acknowledged: 休暇の日の確認
+      shift_pattern:
+        name: パターン名
+        start_time: 開始時刻
+        end_time: 終了時刻
+        break_minutes: 休憩時間
+      paid_leave_grant:
+        granted_on: 付与日
+        days: 日数
+        half_days: 日数
+        expires_on: 有効期限
+        note: メモ
       approval_request:
         user: 申請者
         status: 状態
@@ -82,6 +104,7 @@ ja:
               breaks_overlap: 休憩%{first}と休憩%{second}の時間が重なっています
               unchanged: 今の記録と同じ内容です。正しい時刻に直してから申請してください
               duplicate_pending: この日にはすでに承認待ちの修正申請があります。内容を変えたい場合は、その申請を取り下げてから出し直してください
+              closed_period: この日は%{period}に含まれるため、修正申請できません。記録を直す必要がある場合は、管理者に連絡してください
               busy: 他の操作と同時に送信されたため、保存できませんでした。申請の一覧で申請されていないことを確認してから、もう一度「申請する」を押してください
         leave_request:
           attributes:
@@ -100,7 +123,57 @@ ja:
               paid_leave_days_off_only: 有給休暇は休日（土日・祝日）を日数に数えないため、休日だけの期間は申請できません（日数が0日になります）
               overlaps: "%{leave}（%{status}）と期間が重なっています。重なる休暇を取り下げるか、取消申請してから申請してください"
               overlaps_concurrent: 同じ時期の休暇の申請が同時に送られたため、申請できませんでした。休暇の一覧を確認してください
+              closed_period: 期間が%{period}にかかるため、申請できません。締め済みの月度の日を含まない期間で申請してください
               busy: 他の操作と同時に送信されたため、保存できませんでした。休暇の一覧で申請されていないことを確認してから、もう一度「申請する」を押してください
+              insufficient_paid_leave: 有給休暇の残日数が足りないため申請できません（この申請 %{days}・休暇の日付に使える残り %{available}）。日数を減らすか、特別休暇・欠勤で申請してください
+              insufficient_paid_leave_with_pending: 有給休暇の残日数が足りないため申請できません（この申請 %{days}・休暇の日付に使える残り %{available}。承認待ちの有給 %{pending} も差し引いて数えています）。日数を減らすか、承認待ちの申請を取り下げてから申請してください
+              paid_leave_not_usable_on_dates: 有給の付与は、付与日から有効期限の日までの休暇にだけ使えます。休暇の日付より前に有効期限が切れる分や、休暇の日付より後に付与された分は、この休暇には使えません
+        shift:
+          attributes:
+            start_time:
+              invalid_time: は「9:00」のように 時:分 で入力してください（0:00〜23:59）
+            end_time:
+              invalid_time: は「18:00」のように 時:分 で入力してください（0:00〜23:59。日付をまたぐ場合も翌日の時刻をそのまま入れます）
+              same_as_start: が開始時刻と同じです。勤務時間が0になるため登録できません（日付をまたぐ場合は、翌日の終了時刻を入れてください）
+            break_minutes:
+              not_a_number: は数値（分）で入力してください（例：60）
+              not_an_integer: は分の整数で入力してください（例：60）
+              greater_than_or_equal_to: は0分以上にしてください
+              not_shorter_than_shift: は勤務時間（%{span}）より短くしてください
+            work_date:
+              out_of_range: は%{from}〜%{to}の日付にしてください
+            base:
+              inactive_user: 無効な従業員にはシフトを登録・変更できません（従業員を有効にしてから登録してください）
+              overlaps_previous_day: 前日（%{date}）のシフト（%{range}）と時間が重なっています
+              overlaps_next_day: 翌日（%{date}）のシフト（%{range}）と時間が重なっています
+              on_leave: この日は %{name} さんの休暇（%{leave}）の日です。休暇の日にシフトを入れる場合は「休暇の日と確認したうえで登録する」にチェックを入れてください
+        shift_pattern:
+          attributes:
+            name:
+              taken: はすでに使われています（別の名前にしてください）
+            start_time:
+              invalid_time: は「9:00」のように 時:分 で入力してください（0:00〜23:59）
+            end_time:
+              invalid_time: は「18:00」のように 時:分 で入力してください（0:00〜23:59。日付をまたぐ場合も翌日の時刻をそのまま入れます）
+              same_as_start: が開始時刻と同じです。勤務時間が0になるため登録できません（日付をまたぐ場合は、翌日の終了時刻を入れてください）
+            break_minutes:
+              not_a_number: は数値（分）で入力してください（例：60）
+              not_an_integer: は分の整数で入力してください（例：60）
+              greater_than_or_equal_to: は0分以上にしてください
+              not_shorter_than_shift: は勤務時間（%{span}）より短くしてください
+            base:
+              too_many: シフトパターンは%{count}件まで登録できます（使わないパターンを削除してください）
+        paid_leave_grant:
+          attributes:
+            days:
+              not_a_number: は数値で入力してください（例：10、7.5）
+              half_day_unit: は0.5日単位で入力してください（例：10、7.5）
+              out_of_range: は0.5日以上、%{max}日以下にしてください
+            granted_on:
+              in_future: に未来の日付は指定できません（今日までの日付にしてください）
+              too_old: は%{date}以降の日付にしてください
+            expires_on:
+              before_granted_on: は付与日と同じか、付与日より後の日付にしてください
         leave_cancellation_request:
           attributes:
             base:
@@ -109,6 +182,7 @@ ja:
               already_cancelled: この休暇はすでに取り消されています
               already_started: 開始日が今日または過去の休暇は、取消申請できません。取消は管理者に依頼してください（管理者が直接取り消します）
               cancellation_pending: この休暇にはすでに承認待ちの取消申請があります
+              closed_period: この休暇は%{period}にかかるため、取消申請できません
               duplicate_pending: この休暇にはすでに承認待ちの取消申請があります
               busy: 他の操作と同時に送信されたため、保存できませんでした。申請の一覧で申請されていないことを確認してから、もう一度お試しください
         attendance:
@@ -125,6 +199,8 @@ ja:
               before_started_at: は休憩開始時刻より後にしてください
         user:
           attributes:
+            name:
+              control_characters: に改行・タブなどの制御文字は使えません
             email:
               taken: はすでに登録されています
             current_password:
@@ -154,6 +230,13 @@ ja:
         comment: コメント
       leave_direct_cancellation:
         reason: 取消の理由
+      paid_leave_grant_removal:
+        reason: 削除の理由
+      attendance_record_editor:
+        clock_in_time: 出勤時刻
+        clock_out_time: 退勤時刻
+        clock_out_day: 退勤の日付
+        reason: 理由
     errors:
       models:
         approval_review:
@@ -169,11 +252,14 @@ ja:
       overlaps_previous_day: 前日（%{date}）の勤務の退勤（%{time}）より前に出勤する内容のため承認できません（前日の勤務と重なります）
       overlaps_next_day: 翌日（%{date}）の勤務の出勤（%{time}）より後に退勤する内容のため承認できません（翌日の勤務と重なります）
       open_ended_with_next_day: 退勤が空欄（勤務中）の申請ですが、翌日（%{date}）に勤務の記録があるため承認できません
+      closed_period: 対象日が%{period}に含まれるため承認できません（締め済みの月度の勤怠は変更できません。却下はできます）
   # 休暇申請・取消申請を承認できない理由（承認する直前に確かめ直す）
   leave_request:
     approval_blockers:
       overlaps: 承認済みの %{leave} と期間が重なるため承認できません
       paid_days_off_only: 期間がすべて休日（土日・祝日）のため、有給休暇の日数が0日になり承認できません
+      insufficient_paid_leave: 有給休暇の残日数が足りないため承認できません（この休暇 %{days}・休暇の日付に使える残り %{available}）。有給を付与してから承認するか、却下してください
+      closed_period: 期間が%{period}にかかるため承認できません（締め済みの月度の勤怠は変更できません。却下はできます）
     cancellation_blockers:
       already_cancelled: この休暇は取り消されています。
       not_approved: 承認済みの休暇だけ取消申請できます。
@@ -190,6 +276,7 @@ ja:
     approval_blockers:
       already_cancelled: 取り消す休暇は、すでに取り消されています
       not_approved: 取り消す休暇が「%{status}」のため承認できません（承認済みの休暇だけ取り消せます）
+      closed_period: 取り消す休暇が%{period}にかかるため承認できません（締め済みの月度の勤怠は変更できません。却下はできます）
   enums:
     leave_request:
       leave_type:

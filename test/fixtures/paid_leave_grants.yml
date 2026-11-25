@@ -1,0 +1,18 @@
+# 有給休暇の付与（F10）。既存の休暇のテストが残日数の不足で失敗しないよう、
+# 従業員と管理者に、テストで使う日付（今日の前後1年や travel_to した日）をすべて含む期間の付与を入れておく。
+# 残日数そのものを確かめるテストは、付与の無いユーザーを作るか、この付与を消してから確かめる。
+employee_wide:
+  user: employee
+  granted_on: 2024-01-01
+  half_days: 80
+  expires_on: 2030-12-31
+  granted_by: admin
+  note: テスト用（広い期間）
+
+admin_wide:
+  user: admin
+  granted_on: 2024-01-01
+  half_days: 80
+  expires_on: 2030-12-31
+  granted_by: admin
+  note: テスト用（広い期間）

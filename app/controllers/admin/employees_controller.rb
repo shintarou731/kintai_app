@@ -9,7 +9,10 @@ class Admin::EmployeesController < Admin::BaseController
   def index
     @status = STATUS_FILTERS.include?(params[:status]) ? params[:status] : "all"
     @counts = { "all" => User.count, "active" => User.active.count, "inactive" => User.inactive.count }
-    @employees = filtered_users.ordered_for_list
+    @employees = filtered_users.ordered_for_list.to_a
+    # 有給休暇の残日数と当年度の取得日数（F10）。付与と休暇をまとめて読む
+    @paid_leaves = PaidLeaveAccount.for_users(@employees)
+    @fiscal_year = PaidLeaveAccount.fiscal_year_range(Date.current)
   end
 
   def new

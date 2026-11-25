@@ -85,7 +85,7 @@ class Admin::LeaveApprovalsControllerTest < ActionDispatch::IntegrationTest
 
     post_review(leave, decision: "approve")
     assert_redirected_to admin_approval_requests_path
-    assert_equal "従業 花子 さんの 11/26(木)〜11/27(金) の休暇申請を承認しました。勤怠履歴の該当日に「有給（全日）」と表示されます。",
+    assert_equal "従業 花子 さんの 11/26(木)〜11/27(金) の休暇申請を承認しました。勤怠履歴の該当日に「有給（全日）」と表示されます。有給休暇の残日数から2日引きました。",
                  flash[:notice]
     assert leave.reload.approved?
 
@@ -168,7 +168,7 @@ class Admin::LeaveApprovalsControllerTest < ActionDispatch::IntegrationTest
 
     second = cancellation!(leave)
     post_review(second, decision: "approve")
-    assert_equal "従業 花子 さんの 11/26(木)〜11/27(金) の休暇取消申請を承認しました。休暇を取り消しました（勤怠履歴の表示も消えます）。",
+    assert_equal "従業 花子 さんの 11/26(木)〜11/27(金) の休暇取消申請を承認しました。休暇を取り消しました（勤怠履歴の表示も消えます）。有給休暇の残日数に2日戻しました。",
                  flash[:notice]
     assert leave.reload.cancelled?
 

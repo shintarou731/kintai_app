@@ -137,6 +137,10 @@ class ApprovalRequest < ApplicationRecord
     active_admin_count >= 2 ? :forbidden : :allowed
   end
 
+  # 承認・却下の直前に、承認の判断に使う関連する行をロックする（ApprovalReview のトランザクションの中で呼ぶ）。種類ごとにサブクラスで定める
+  def lock_for_review!
+  end
+
   # 承認できない理由（無ければ空）。承認する直前に、その時点のデータで確かめる。種類ごとにサブクラスで定める
   def approval_blockers(now: Time.current)
     []

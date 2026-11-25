@@ -1,0 +1,92 @@
+<% monthly = @monthly %>
+<% period = monthly.period %>
+<% rules = monthly.rules %>
+<% user = @user %>
+<% content_for :title, "月次集計：#{user.name}（#{period.label}）" %>
+
+<div class="page">
+  <%= link_to "← 月次集計に戻る（#{period.label}）", admin_monthly_summaries_path(month: period.to_param), class: "back-link" %>
+  <header class="page__header page__header--with-actions history-header">
+    <div>
+      <p class="page__eyebrow">管理・月次集計</p>
+      <h1 class="page__title" data-testid="monthly-user-title">
+        <%= user.name %> さん：<%= period.label %>
+        <% unless user.active? %><span class="badge badge--muted">無効</span><% end %>
+        <%= period_closing_badge(period) %>
+      </h1>
+      <p class="history-header__range muted">
+        <span data-testid="period-range"><%= l(period.start_date, format: :short_with_day) %>〜<%= l(period.end_date, format: :short_with_day) %></span>
+        <%= period_basis_note(period) %>
+      </p>
+    </div>
+    <%= render "admin/shift_reports/month_nav", period: period, current_period: @current_period,
+                                                path_builder: ->(month) { admin_monthly_summary_path(user, { month: month }.compact) } %>
+  </header>
+
+  <%= render "attendances/closed_notice", monthly: monthly, admin_view: true %>
+
+  <% if !monthly.closed? && user.id == current_user.id && @active_admin_count >= 2 %>
+    <div class="notice-box notice-box--info section" role="note" data-testid="self-edit-notice">
+      <p class="notice-box__title">ご自身の勤怠は他の管理者が直します</p>
+      <p class="notice-box__body">有効な管理者が<%= @active_admin_count %>名いるため、ご自身の勤怠は直接修正できません（申請の自己承認と同じ扱いです）。</p>
+    </div>
+  <% end %>
+
+  <section class="card section" aria-labelledby="user-totals-title" data-testid="monthly-totals">
+    <h2 id="user-totals-title" class="card__title">この<%= period.unit %>の合計</h2>
+    <dl class="summary">
+      <div class="summary__item">
+        <dt class="summary__label">出勤日数</dt>
+        <dd class="summary__value" data-testid="total-days"><%= monthly.working_days_count %><span class="summary__unit">日</span></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">総実働時間</dt>
+        <dd class="summary__value" data-testid="total-worked"><%= format_duration(monthly.total_worked_minutes) %></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">総残業時間</dt>
+        <dd class="summary__value" data-testid="total-overtime"><%= format_duration(monthly.total_overtime_minutes) %></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">深夜時間</dt>
+        <dd class="summary__value" data-testid="total-night"><%= format_duration(monthly.total_night_minutes) %></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">休日の勤務</dt>
+        <dd class="summary__value" data-testid="total-holiday"><%= format_duration(monthly.total_holiday_worked_minutes) %></dd>
+      </div>
+      <div class="summary__item">
+        <dt class="summary__label">有給取得</dt>
+        <dd class="summary__value" data-testid="total-paid-leave"><%= LeaveRequest.format_days(monthly.paid_leave_days) %></dd>
+      </div>
+    </dl>
+    <p class="summary__marks">
+      遅刻 <strong data-testid="total-late"><%= monthly.late_count %>回</strong>・
+      早退 <strong data-testid="total-early-leave"><%= monthly.early_leave_count %>回</strong>・
+      欠勤 <strong data-testid="total-absence"><%= monthly.absence_count %>回</strong>
+      <% if monthly.absence_leave_days.positive? %>
+        <span class="muted">（ほかに種類が「欠勤」の休暇 <%= LeaveRequest.format_days(monthly.absence_leave_days) %>。欠勤の回数には含めていません）</span>
+      <% end %>
+    </p>
+    <p class="summary__note muted">
+      残業時間＝1日の実働時間のうち所定労働時間（<%= format_duration(rules.scheduled_work_minutes) %>）を超えた部分。
+      <% unless monthly.closed? %>「修正」「作成」から、出勤・退勤・休憩を直接直せます（理由が必須で、直接修正の履歴に残ります）。<% end %>
+    </p>
+  </section>
+
+  <% if (missing = monthly.missing_clock_out_days).any? %>
+    <section class="notice-box notice-box--danger section" role="note" data-testid="missing-clock-out-notice">
+      <p class="notice-box__title">退勤漏れが <%= missing.size %> 日あります</p>
+      <p class="notice-box__body">
+        <%= missing.map { |day| l(day.date, format: :short_with_day) }.join("、") %> は退勤の打刻がありません。退勤漏れの日の時間は合計に含めていません。
+      </p>
+    </section>
+  <% end %>
+
+  <%= render "attendances/days_table", monthly: monthly, admin_view: true, edited_dates: @edited_dates %>
+
+  <section class="section" aria-labelledby="edits-title">
+    <h2 id="edits-title" class="section__title">直接修正の履歴（この<%= period.unit %>）</h2>
+    <%= render "admin/attendance_records/edit_history", edits: @edits, show_date: true %>
+  </section>
+</div>

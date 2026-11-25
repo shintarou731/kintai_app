@@ -11,6 +11,8 @@
 #   PostgreSQL などでは申請の行をロックする）。
 # - 自己承認ルール：有効な管理者が2人以上なら、自分の申請は承認・却下できない（ApprovalRequest#self_review_status）。
 #   人数もトランザクションの中で数え直すので、管理者の無効化・追加と同時に届いても判断がずれない。
+# - 通知（F16）：処理が確定した（トランザクションを抜けた）後に、申請者へ結果を通知し、打刻修正の承認なら残業の警告を判定する。
+#   通知が作れなくても、承認・却下は取り消さない（Notifier.safely）。
 class ApprovalReview
   include ActiveModel::Model
   include ActiveModel::Attributes
@@ -48,6 +50,7 @@ class ApprovalReview
     saved = false
     ApprovalRequest.transaction do
       request = ApprovalRequest.lock.find(approval_request.id)
+      request.lock_for_review!
       refusals = refusal_reasons(request, now)
       if refusals.any?
         refusals.each { |message| errors.add(:base, message) }
@@ -60,7 +63,11 @@ class ApprovalReview
       @approval_request = request
       saved = true
     end
-    approval_request.reload unless saved
+    if saved
+      notify_after_commit(now)
+    else
+      approval_request.reload
+    end
     saved
   rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => error
     fail_with("勤怠記録を更新できなかったため、承認できませんでした（#{error_detail(error)}）。画面を再読み込みして、今の記録を確認してください。")
@@ -69,6 +76,15 @@ class ApprovalReview
   end
 
   private
+
+  # 承認・却下が確定した後の通知（F16）。申請者へ結果を送り、打刻修正の承認で勤怠が変わったら残業の警告を判定する。
+  # どちらも失敗しても例外を出さない（承認・却下は取り消さない）
+  def notify_after_commit(now)
+    Notifier.request_reviewed(approval_request)
+    return unless approve? && approval_request.is_a?(AttendanceCorrectionRequest)
+
+    OvertimeAlert.check(approval_request.user, date: approval_request.target_date, now: now)
+  end
 
   def comment_required_for_rejection
     errors.add(:comment, :blank_for_rejection) if reject? && comment.blank?
